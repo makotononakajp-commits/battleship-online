@@ -5,10 +5,16 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 const PORT = process.env.PORT || 3000;
-const SIZE = 7;
+const ALLOWED_SIZES = [7, 8, 9];
+const DEFAULT_SIZE = 7;
 
 const SHIPS = [
   { name: "船①", cells: [[0, 0], [1, 0]] },
@@ -19,9 +25,9 @@ const SHIPS = [
 
 app.use(express.static(path.join(__dirname, "public")));
 
-function createBoard() {
-  return Array.from({ length: SIZE }, () =>
-    Array.from({ length: SIZE }, () => ({
+function createBoard(size) {
+  return Array.from({ length: size }, () =>
+    Array.from({ length: size }, () => ({
       ship: false,
       hit: false,
       wave: false
@@ -29,11 +35,11 @@ function createBoard() {
   );
 }
 
-function createPlayer(socketId, playerNumber) {
+function createPlayer(socketId, playerNumber, boardSize) {
   return {
     socketId,
     playerNumber,
-    ownBoard: createBoard(),
+    ownBoard: createBoard(boardSize),
     totalShipCells: 0,
     hitsReceived: 0,
     placementDone: false
@@ -59,30 +65,32 @@ function getRotatedShipCells(baseCells, rotation) {
   return result;
 }
 
-function canPlaceShip(board, shipCells, originX, originY) {
+function canPlaceShip(board, shipCells, originX, originY, boardSize) {
   for (const [dx, dy] of shipCells) {
     const x = originX + dx;
     const y = originY + dy;
 
-    if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return false;
+    if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) return false;
     if (board[y][x].ship) return false;
   }
   return true;
 }
 
-function buildBoardFromPlacements(placements) {
-  const board = createBoard();
+function buildBoardFromPlacements(placements, boardSize) {
+  const board = createBoard(boardSize);
   let totalShipCells = 0;
 
   for (let i = 0; i < SHIPS.length; i++) {
     const ship = SHIPS[i];
     const placement = placements[i];
+
     if (!placement) {
       return { ok: false, reason: `${ship.name} の配置が不足しています` };
     }
 
     const rotated = getRotatedShipCells(ship.cells, placement.rotation);
-    if (!canPlaceShip(board, rotated, placement.x, placement.y)) {
+
+    if (!canPlaceShip(board, rotated, placement.x, placement.y, boardSize)) {
       return { ok: false, reason: `${ship.name} をその位置に置けません` };
     }
 
@@ -97,7 +105,7 @@ function buildBoardFromPlacements(placements) {
   return { ok: true, board, totalShipCells };
 }
 
-function isAdjacentToShip(board, x, y) {
+function isAdjacentToShip(board, x, y, boardSize) {
   const dirs = [
     [0, -1],
     [-1, 0],
@@ -108,9 +116,11 @@ function isAdjacentToShip(board, x, y) {
   for (const [dx, dy] of dirs) {
     const nx = x + dx;
     const ny = y + dy;
-    if (nx < 0 || nx >= SIZE || ny < 0 || ny >= SIZE) continue;
+
+    if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) continue;
     if (board[ny][nx].ship) return true;
   }
+
   return false;
 }
 
@@ -127,6 +137,7 @@ function getPublicOwnBoard(player) {
 function getRoomPublicState(room) {
   return {
     roomId: room.roomId,
+    boardSize: room.boardSize,
     phase: room.phase,
     turn: room.turn,
     winner: room.winner,
@@ -152,55 +163,73 @@ function getPlayerRoom(socketId) {
 const rooms = new Map();
 
 io.on("connection", socket => {
-  socket.on("joinRoom", ({ roomId }) => {
-    const normalizedRoomId = String(roomId || "").trim().toUpperCase();
-    if (!normalizedRoomId) {
-      socket.emit("errorMessage", "部屋IDを入力してください。");
-      return;
-    }
+  socket.on("joinRoom", ({ roomId, boardSize }) => {
+  const normalizedRoomId = String(roomId || "").trim().toUpperCase();
+  const selectedSize = Number(boardSize) || DEFAULT_SIZE;
 
-    let room = rooms.get(normalizedRoomId);
-    if (!room) {
-      room = {
-        roomId: normalizedRoomId,
-        phase: "waiting",
-        players: [],
-        turn: null,
-        winner: null
-      };
-      rooms.set(normalizedRoomId, room);
-    }
+  if (!normalizedRoomId) {
+    socket.emit("errorMessage", "部屋IDを入力してください。");
+    return;
+  }
 
-    if (room.players.length >= 2) {
-      socket.emit("errorMessage", "この部屋は満員です。");
-      return;
-    }
+  if (!ALLOWED_SIZES.includes(selectedSize)) {
+    socket.emit("errorMessage", "盤面サイズは 7、8、9 のどれかを選んでください。");
+    return;
+  }
 
-    if (room.players.some(p => p.socketId === socket.id)) {
-      socket.emit("errorMessage", "すでに入室しています。");
-      return;
-    }
+  let room = rooms.get(normalizedRoomId);
 
-    const playerNumber = room.players.length + 1;
-    const player = createPlayer(socket.id, playerNumber);
-    room.players.push(player);
-    socket.join(normalizedRoomId);
-
-    socket.emit("joinedRoom", {
+  if (!room) {
+    room = {
       roomId: normalizedRoomId,
-      playerNumber
-    });
-
-    io.to(normalizedRoomId).emit("roomState", getRoomPublicState(room));
-
-    if (room.players.length === 2) {
-      room.phase = "placement";
-      io.to(normalizedRoomId).emit("roomState", getRoomPublicState(room));
-      io.to(normalizedRoomId).emit("systemMessage", "2人そろいました。船を配置してください。");
-    } else {
-      socket.emit("systemMessage", "入室しました。相手の参加を待っています。");
+      boardSize: selectedSize,
+      phase: "waiting",
+      players: [],
+      turn: null,
+      winner: null
+    };
+    rooms.set(normalizedRoomId, room);
+  } else {
+    if (room.boardSize !== selectedSize) {
+      socket.emit(
+        "errorMessage",
+        `この部屋は ${room.boardSize}×${room.boardSize} 用です。${room.boardSize}×${room.boardSize} を選んで入り直してください。`
+      );
+      return;
     }
+  }
+
+  if (room.players.some(p => p.socketId === socket.id)) {
+    socket.emit("errorMessage", "すでに入室しています。");
+    return;
+  }
+
+  if (room.players.length >= 2) {
+    socket.emit("errorMessage", "この部屋は満員です。");
+    return;
+  }
+
+  const playerNumber = room.players.length + 1;
+  const player = createPlayer(socket.id, playerNumber, room.boardSize);
+  room.players.push(player);
+  socket.join(normalizedRoomId);
+
+  socket.emit("joinedRoom", {
+    roomId: normalizedRoomId,
+    playerNumber,
+    boardSize: room.boardSize
   });
+
+  io.to(normalizedRoomId).emit("roomState", getRoomPublicState(room));
+
+  if (room.players.length === 2) {
+    room.phase = "placement";
+    io.to(normalizedRoomId).emit("roomState", getRoomPublicState(room));
+    io.to(normalizedRoomId).emit("systemMessage", "2人そろいました。船を配置してください。");
+  } else {
+    socket.emit("systemMessage", "入室しました。相手の参加を待っています。");
+  }
+});
 
   socket.on("submitPlacement", ({ roomId, placements }) => {
     const room = rooms.get(String(roomId || "").trim().toUpperCase());
@@ -225,7 +254,7 @@ io.on("connection", socket => {
       return;
     }
 
-    const built = buildBoardFromPlacements(placements);
+    const built = buildBoardFromPlacements(placements, room.boardSize);
     if (!built.ok) {
       socket.emit("errorMessage", built.reason);
       return;
@@ -282,8 +311,8 @@ io.on("connection", socket => {
     if (
       typeof x !== "number" ||
       typeof y !== "number" ||
-      x < 0 || x >= SIZE ||
-      y < 0 || y >= SIZE
+      x < 0 || x >= room.boardSize ||
+      y < 0 || y >= room.boardSize
     ) {
       socket.emit("errorMessage", "座標が不正です。");
       return;
@@ -318,7 +347,7 @@ io.on("connection", socket => {
         });
         return;
       }
-    } else if (isAdjacentToShip(defender.ownBoard, x, y)) {
+    } else if (isAdjacentToShip(defender.ownBoard, x, y, room.boardSize)) {
       cell.wave = true;
 
       socket.emit("attackResult", {
@@ -361,7 +390,7 @@ io.on("connection", socket => {
 
     for (const p of room.players) {
       p.placementDone = false;
-      p.ownBoard = createBoard();
+      p.ownBoard = createBoard(room.boardSize);
       p.totalShipCells = 0;
       p.hitsReceived = 0;
     }
