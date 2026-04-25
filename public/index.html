@@ -213,9 +213,22 @@
       </div>
     </div>
 
-    <div class="panel">
-      <h2>船の一覧</h2>
-      <ul class="ship-list">
+    <div class="boards">
+      <div class="panel board-wrap">
+        <h2 id="ownBoardTitle">自分マス</h2>
+        <div id="ownBoard" class="grid"></div>
+      </div>
+
+      <div class="panel board-wrap">
+        <h2 id="targetBoardTitle">相手マス / 自分予想マス</h2>
+        <div id="targetBoard" class="grid"></div>
+      </div>
+    </div>
+
+    <div class="panel ship-list-panel">
+      <details class="ship-details">
+        <summary>船の一覧を表示 / 非表示</summary>
+        <ul class="ship-list">
         <li>船①：2×1</li>
         <li>船②：3×1</li>
         <li>船③：2×3 から1マス除く形（計5マス）</li>
@@ -231,18 +244,6 @@
         <span>× はずれ</span>
         <span>🔥 相手に当てられた船</span>
         <span>🌊 相手が撃った海</span>
-      </div>
-    </div>
-
-    <div class="boards">
-      <div class="panel board-wrap">
-        <h2 id="ownBoardTitle">自分マス</h2>
-        <div id="ownBoard" class="grid"></div>
-      </div>
-
-      <div class="panel board-wrap">
-        <h2 id="targetBoardTitle">相手マス / 自分予想マス</h2>
-        <div id="targetBoard" class="grid"></div>
       </div>
     </div>
   </div>
@@ -657,6 +658,21 @@
       }
     }
 
+
+    function setShipDetailsDefault() {
+      const details = document.querySelector(".ship-details");
+      if (!details) return;
+      details.open = window.innerWidth >= 981;
+    }
+
+    window.addEventListener("resize", () => {
+      const details = document.querySelector(".ship-details");
+      if (!details) return;
+      if (window.innerWidth >= 981) {
+        details.open = true;
+      }
+    });
+
     function render() {
       ownBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
       ownBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
@@ -759,6 +775,7 @@
       render();
     });
 
+    setShipDetailsDefault();
     render();
   </script>
 </body>
