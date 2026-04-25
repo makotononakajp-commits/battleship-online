@@ -147,6 +147,10 @@
 
     .floating-attack-bar.show { display: flex; }
     .floating-attack-bar.my-turn { color: #b02a37; }
+    .floating-attack-bar.result-message {
+      color: #b02a37;
+      font-size: 15px;
+    }
 
 
     .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 14px; margin-top: 10px; }
@@ -390,7 +394,8 @@
       selectedX: null,
       selectedY: null,
       joined: false,
-      placementSubmitted: false
+      placementSubmitted: false,
+      battleFloatingMessage: ""
     };
 
     function createBoard() {
@@ -483,6 +488,12 @@
     }
 
     function isMyTurn() { return state.phase === "battle" && state.turn === state.myPlayerNumber; }
+
+    function setBattleFloatingMessage(message, isResult = false) {
+      if (!floatingAttackStatus) return;
+      floatingAttackStatus.textContent = message;
+      floatingAttackBar.classList.toggle("result-message", isResult);
+    }
 
     function selectPlacementCell(x, y) {
       if (state.phase !== "placement" || state.placementSubmitted || state.currentShipIndex >= SHIPS.length) return;
@@ -585,6 +596,8 @@
         resultText.textContent = "そのマスはすでに攻撃済みです。";
         return;
       }
+      state.battleFloatingMessage = "攻撃中...";
+      setBattleFloatingMessage(state.battleFloatingMessage, true);
       socket.emit("attackCell", { roomId: state.roomId, x, y });
     }
 
@@ -726,11 +739,19 @@
       floatingAttackBar.classList.toggle("my-turn", isBattle && isMyTurn());
 
       if (isBattle) {
-        floatingAttackStatus.textContent = isMyTurn()
-          ? "あなたのターン：相手マスをタップして攻撃"
-          : "相手のターンです";
+        if (state.battleFloatingMessage) {
+          setBattleFloatingMessage(state.battleFloatingMessage, true);
+        } else {
+          setBattleFloatingMessage(
+            isMyTurn()
+              ? "あなたのターン：相手マスをタップして攻撃"
+              : "相手のターンです",
+            false
+          );
+        }
       } else {
-        floatingAttackStatus.textContent = "";
+        state.battleFloatingMessage = "";
+        setBattleFloatingMessage("", false);
       }
 
       if (!canPlace) {
@@ -841,9 +862,15 @@
 
     socket.on("attackResult", ({ x, y, result }) => {
       state.targetBoard[y][x].result = result;
-      if (result === "hit") resultText.textContent = `(${x + 1}, ${y + 1}) に命中しました。`;
-      else if (result === "near") resultText.textContent = `(${x + 1}, ${y + 1}) は船の隣でした。`;
-      else resultText.textContent = `(${x + 1}, ${y + 1}) ははずれでした。`;
+
+      if (result === "hit") {
+        state.battleFloatingMessage = `(${x + 1}, ${y + 1}) に命中しました。`;
+      } else if (result === "near") {
+        state.battleFloatingMessage = `(${x + 1}, ${y + 1}) は船の隣でした。`;
+      } else {
+        state.battleFloatingMessage = `(${x + 1}, ${y + 1}) ははずれでした。`;
+      }
+
       render();
     });
 
