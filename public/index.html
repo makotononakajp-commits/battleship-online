@@ -319,11 +319,12 @@
       <div>
         <div class="controls">
           <button id="rotateBtn" disabled>船を回転</button>
+          <button id="placeSelectedBtn" disabled>この位置に配置</button>
           <button id="submitPlacementBtn" disabled>この配置で決定</button>
           <button id="resetPlacementBtn" class="secondary" disabled>配置をやり直す</button>
         </div>
         <div class="small-note">
-          船③は 2×3 から1マス除く形です。配置中は左の盤面にマウスを乗せると、置ける位置が緑、置けない位置が赤で表示されます。
+          船③は 2×3 から1マス除く形です。PCではマウスを乗せて確認しクリックで配置、スマホではタップで候補を選び「この位置に配置」で確定します。
         </div>
       </div>
     </div>
@@ -373,6 +374,9 @@
     const SERVER_URL = "https://battleship-online-server.onrender.com";
     let boardSize = 7;
 
+    const isTouchDevice =
+      "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
     const SHIPS = [
       { name: "船①", cells: [[0, 0], [1, 0]] },
       { name: "船②", cells: [[0, 0], [1, 0], [2, 0]] },
@@ -400,6 +404,7 @@
     const targetBoardEl = document.getElementById("targetBoard");
 
     const rotateBtn = document.getElementById("rotateBtn");
+    const placeSelectedBtn = document.getElementById("placeSelectedBtn");
     const submitPlacementBtn = document.getElementById("submitPlacementBtn");
     const resetPlacementBtn = document.getElementById("resetPlacementBtn");
 
@@ -422,6 +427,8 @@
       rotation: 0,
       hoverX: null,
       hoverY: null,
+      selectedX: null,
+      selectedY: null,
       needsRender: false,
       joined: false,
       placementSubmitted: false
@@ -453,6 +460,8 @@
       state.rotation = 0;
       state.hoverX = null;
       state.hoverY = null;
+      state.selectedX = null;
+      state.selectedY = null;
       state.placementSubmitted = false;
     }
 
@@ -524,18 +533,30 @@
       if (state.phase !== "placement") return null;
       if (state.placementSubmitted) return null;
       if (state.currentShipIndex >= SHIPS.length) return null;
-      if (state.hoverX === null || state.hoverY === null) return null;
+
+      let baseX = null;
+      let baseY = null;
+
+      if (isTouchDevice) {
+        baseX = state.selectedX;
+        baseY = state.selectedY;
+      } else {
+        baseX = state.hoverX;
+        baseY = state.hoverY;
+      }
+
+      if (baseX === null || baseY === null) return null;
 
       const ship = SHIPS[state.currentShipIndex];
       const rotated = getRotatedShipCells(ship.cells, state.rotation);
-      const valid = canPlaceShip(state.ownBoard, rotated, state.hoverX, state.hoverY);
+      const valid = canPlaceShip(state.ownBoard, rotated, baseX, baseY);
 
       const cells = rotated.map(([dx, dy]) => ({
-        x: state.hoverX + dx,
-        y: state.hoverY + dy
+        x: baseX + dx,
+        y: baseY + dy
       }));
 
-      return { valid, cells };
+      return { valid, cells, baseX, baseY };
     }
 
     function isMyTurn() {
@@ -544,6 +565,27 @@
 
     function getOtherPlayer() {
       return state.players.find(p => p.playerNumber !== state.myPlayerNumber) || null;
+    }
+
+    function selectPlacementCell(x, y) {
+      if (state.phase !== "placement") return;
+      if (state.placementSubmitted) return;
+      if (state.currentShipIndex >= SHIPS.length) return;
+
+      state.selectedX = x;
+      state.selectedY = y;
+
+      const ship = SHIPS[state.currentShipIndex];
+      const rotated = getRotatedShipCells(ship.cells, state.rotation);
+      const valid = canPlaceShip(state.ownBoard, rotated, x, y);
+
+      if (valid) {
+        resultText.textContent = "この位置に配置できます。「この位置に配置」を押してください。";
+      } else {
+        resultText.textContent = "この位置には配置できません。別のマスを選んでください。";
+      }
+
+      render();
     }
 
     function handlePlacementClick(x, y) {
@@ -559,6 +601,10 @@
       }
 
       resultText.textContent = "";
+      state.selectedX = null;
+      state.selectedY = null;
+      state.hoverX = null;
+      state.hoverY = null;
 
       if (state.currentShipIndex < SHIPS.length - 1) {
         state.currentShipIndex++;
@@ -568,6 +614,20 @@
         resultText.textContent = "すべての船を配置しました。「この配置で決定」を押してください。";
       }
 
+      render();
+    }
+
+    function placeSelectedCell() {
+      if (!isTouchDevice) return;
+      if (state.selectedX === null || state.selectedY === null) {
+        resultText.textContent = "まず盤面をタップして配置場所を選んでください。";
+        return;
+      }
+
+      handlePlacementClick(state.selectedX, state.selectedY);
+
+      state.selectedX = null;
+      state.selectedY = null;
       render();
     }
 
@@ -630,23 +690,29 @@
           if (state.phase === "placement" && !state.placementSubmitted) {
             cell.classList.add("clickable");
 
-            cell.addEventListener("mouseenter", () => {
-              if (state.hoverX === x && state.hoverY === y) return;
-              state.hoverX = x;
-              state.hoverY = y;
-
-              if (state.needsRender) return;
-              state.needsRender = true;
-
-              requestAnimationFrame(() => {
-                state.needsRender = false;
-                render();
+            if (isTouchDevice) {
+              cell.addEventListener("click", () => {
+                selectPlacementCell(x, y);
               });
-            });
+            } else {
+              cell.addEventListener("mouseenter", () => {
+                if (state.hoverX === x && state.hoverY === y) return;
+                state.hoverX = x;
+                state.hoverY = y;
 
-            cell.addEventListener("click", () => {
-              handlePlacementClick(x, y);
-            });
+                if (state.needsRender) return;
+                state.needsRender = true;
+
+                requestAnimationFrame(() => {
+                  state.needsRender = false;
+                  render();
+                });
+              });
+
+              cell.addEventListener("click", () => {
+                handlePlacementClick(x, y);
+              });
+            }
           }
 
           if (cellData.ship) {
@@ -779,10 +845,23 @@
     }
 
     function renderButtons() {
-      const canPlace = state.joined && state.phase === "placement" && !state.placementSubmitted;
+      const canPlace =
+        state.joined &&
+        state.phase === "placement" &&
+        !state.placementSubmitted;
+
       rotateBtn.disabled = !canPlace;
       resetPlacementBtn.disabled = !canPlace;
       submitPlacementBtn.disabled = !(canPlace && state.placements.length === SHIPS.length);
+
+      if (isTouchDevice) {
+        const preview = getPreviewInfo();
+        placeSelectedBtn.disabled = !(canPlace && preview && preview.valid);
+        placeSelectedBtn.style.display = "inline-block";
+      } else {
+        placeSelectedBtn.disabled = true;
+        placeSelectedBtn.style.display = "none";
+      }
     }
 
     function render() {
@@ -837,7 +916,19 @@
     rotateBtn.addEventListener("click", () => {
       if (rotateBtn.disabled) return;
       state.rotation = (state.rotation + 1) % 4;
-      resultText.textContent = `回転しました。現在は ${state.rotation * 90}° 回転。`;
+
+      if (isTouchDevice && state.selectedX !== null && state.selectedY !== null) {
+        const ship = SHIPS[state.currentShipIndex];
+        const rotated = getRotatedShipCells(ship.cells, state.rotation);
+        const valid = canPlaceShip(state.ownBoard, rotated, state.selectedX, state.selectedY);
+
+        resultText.textContent = valid
+          ? "回転しました。この位置に配置できます。"
+          : "回転しましたが、この位置には配置できません。";
+      } else {
+        resultText.textContent = `回転しました。現在は ${state.rotation * 90}° 回転。`;
+      }
+
       render();
     });
 
@@ -847,6 +938,10 @@
       resetLocalBoards();
       resultText.textContent = "";
       render();
+    });
+
+    placeSelectedBtn.addEventListener("click", () => {
+      placeSelectedCell();
     });
 
     submitPlacementBtn.addEventListener("click", () => {
