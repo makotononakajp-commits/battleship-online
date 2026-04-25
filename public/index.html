@@ -1,47 +1,782 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>海戦ゲーム（UI改善版）</title>
-<style>
-.small-note { font-size: 14px; color: #555; margin-top: 8px; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>海戦ゲーム オンライン対戦</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      background: #f4f8fb;
+      color: #222;
+      padding-bottom: 96px;
+    }
+
+    header {
+      background: #1f4e79;
+      color: white;
+      padding: 16px 20px;
+    }
+
+    header h1 { margin: 0 0 8px 0; font-size: 24px; }
+    header p { margin: 0; font-size: 14px; opacity: 0.95; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+    .panel {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .top-info { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    .status { font-size: 16px; line-height: 1.8; }
+    .status strong { color: #1f4e79; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+    input[type="text"], select {
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    input[type="text"] { min-width: 180px; }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #1f4e79;
+      color: white;
+    }
+
+    button:hover { opacity: 0.92; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #6c757d; }
+    button.warn { background: #b02a37; }
+
+    .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .board-wrap h2 { margin-top: 0; margin-bottom: 10px; font-size: 20px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(7, 54px);
+      grid-template-rows: repeat(7, 54px);
+      gap: 4px;
+      justify-content: start;
+      touch-action: manipulation;
+    }
+
+    .cell {
+      width: 54px;
+      height: 54px;
+      background: #cfe8ff;
+      border: 1px solid #8eb8db;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      user-select: none;
+      border-radius: 8px;
+      transition: transform 0.08s ease, background 0.12s ease, outline 0.12s ease;
+      font-weight: bold;
+    }
+
+    .cell.clickable { cursor: pointer; }
+    .cell.clickable:hover { transform: scale(1.03); background: #b9ddff; }
+    .cell.ship { background: #8fbc8f; border-color: #5d8b5d; }
+    .cell.hit { background: #ffd6d6; }
+    .cell.wave { background: #dff3ff; }
+    .cell.empty-guess { background: #eef7ff; }
+    .cell.preview-valid { background: #bfe8bf !important; outline: 2px solid #2e8b57; }
+    .cell.preview-invalid { background: #f6c0c0 !important; outline: 2px solid #c0392b; }
+    .cell.selected-cell { outline: 4px solid #f6a400 !important; box-shadow: 0 0 0 3px rgba(246,164,0,0.22); }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 14px; margin-top: 10px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .message { font-size: 18px; font-weight: bold; color: #b02a37; margin-top: 10px; min-height: 1.5em; }
+    .ship-list { margin: 0; padding-left: 20px; line-height: 1.8; font-size: 14px; }
+    .small-note { font-size: 13px; color: #555; margin-top: 8px; }
+    .room-box { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+    }
+
+    .overlay.show { display: flex; }
+    .overlay-card {
+      background: white;
+      width: min(620px, 92vw);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    }
+    .overlay-card h2 { margin-top: 0; color: #1f4e79; }
+    .overlay-card p { line-height: 1.8; margin-bottom: 18px; white-space: pre-line; }
+
+    .floating-placement-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(255,255,255,0.97);
+      box-shadow: 0 -4px 18px rgba(0,0,0,0.18);
+      z-index: 1100;
+      border-top: 1px solid #d9e2ea;
+    }
+
+    .floating-placement-bar.show { display: flex; }
+    .floating-placement-bar button { min-width: 86px; padding: 12px 14px; font-size: 15px; }
+    .floating-status {
+      display: none;
+      font-size: 13px;
+      color: #333;
+      max-width: 240px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 980px) {
+      .top-info, .boards { grid-template-columns: 1fr; }
+      .container { padding: 14px; }
+      header h1 { font-size: 22px; }
+      .grid { grid-template-columns: repeat(7, 44px); grid-template-rows: repeat(7, 44px); gap: 4px; }
+      .cell { width: 44px; height: 44px; font-size: 20px; }
+      .floating-status { display: block; }
+      .floating-placement-bar { justify-content: space-around; }
+      .floating-placement-bar button { min-width: 76px; padding: 12px 10px; }
+    }
+  </style>
 </head>
 <body>
+  <header>
+    <h1>海戦ゲーム（オンライン対戦）</h1>
+    <p>同じ部屋IDを入力した2人で対戦できます</p>
+  </header>
 
-<div id="placementControls">
-  <button id="rotateBtn">船を回転</button>
-  <button id="placeSelectedBtn">この位置に配置</button>
-  <button id="submitPlacementBtn">この配置で決定</button>
-  <button id="resetPlacementBtn">配置をやり直す</button>
+  <div class="container">
+    <div class="panel">
+      <div class="room-box">
+        <select id="boardSizeSelect">
+          <option value="7">7×7</option>
+          <option value="8">8×8</option>
+          <option value="9">9×9</option>
+        </select>
+        <input id="roomIdInput" type="text" placeholder="部屋IDを入力（例: ABC123）" />
+        <button id="joinRoomBtn">部屋に入る</button>
+        <button id="copyRoomBtn" class="secondary">部屋IDをコピー</button>
+      </div>
+      <div class="small-note">2人とも同じ部屋IDを入力してください。</div>
+    </div>
 
-  <div class="small-note">
-    配置中は、まず盤面を選択し、必要なら回転し、「この位置に配置」で確定します。
+    <div class="panel top-info">
+      <div class="status">
+        <div><strong>部屋ID：</strong><span id="roomText">未参加</span></div>
+        <div><strong>あなたのプレイヤー番号：</strong><span id="myPlayerText">未参加</span></div>
+        <div><strong>現在の状態：</strong><span id="phaseText">待機中</span></div>
+        <div><strong>現在のターン：</strong><span id="turnText">-</span></div>
+        <div><strong>案内：</strong><span id="guideText">部屋に入ってください。</span></div>
+        <div id="resultText" class="message"></div>
+      </div>
+
+      <div>
+        <div class="controls">
+          <button id="rotateBtn" disabled>船を回転</button>
+          <button id="placeSelectedBtn" disabled>この位置に配置</button>
+          <button id="submitPlacementBtn" disabled>この配置で決定</button>
+          <button id="resetPlacementBtn" class="secondary" disabled>配置をやり直す</button>
+        </div>
+        <div class="small-note">
+          配置中は、まず盤面を選択し、必要なら回転し、「この位置に配置」で確定します。画面下部にも同じ操作バーが表示されます。
+        </div>
+      </div>
+    </div>
+
+    <div class="boards">
+      <div class="panel board-wrap">
+        <h2 id="ownBoardTitle">自分マス</h2>
+        <div id="ownBoard" class="grid"></div>
+      </div>
+
+      <div class="panel board-wrap">
+        <h2 id="targetBoardTitle">相手マス / 自分予想マス</h2>
+        <div id="targetBoard" class="grid"></div>
+      </div>
+    </div>
+
+    <div class="panel ship-list-panel">
+      <details class="ship-details">
+        <summary>船の一覧を表示 / 非表示</summary>
+        <ul class="ship-list">
+        <li>船①：2×1</li>
+        <li>船②：3×1</li>
+        <li>船③：2×3 から1マス除く形（計5マス）</li>
+        <li>船④：4×1</li>
+      </ul>
+      <div class="legend">
+        <span>🟩 自分の船</span>
+        <span>🟩+緑枠 配置可能</span>
+        <span>🟥+赤枠 配置不可</span>
+        <span>🟧 選択中</span>
+        <span>◯ 命中</span>
+        <span>△ 船の隣（上下左右のみ）</span>
+        <span>× はずれ</span>
+        <span>🔥 相手に当てられた船</span>
+        <span>🌊 相手が撃った海</span>
+      </div>
+    </div>
   </div>
-</div>
 
-<script>
-const state = {
-  phase: "placement",
-  placementSubmitted: false
-};
+  <div id="floatingPlacementBar" class="floating-placement-bar">
+    <div id="floatingStatus" class="floating-status">盤面を選択してください</div>
+    <button id="floatingRotateBtn">回転</button>
+    <button id="floatingPlaceBtn">配置</button>
+    <button id="floatingResetBtn" class="secondary">やり直し</button>
+  </div>
 
-const isTouchDevice =
-  "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  <div id="overlay" class="overlay show">
+    <div class="overlay-card">
+      <h2 id="overlayTitle">オンライン対戦へようこそ</h2>
+      <p id="overlayMessage">まず部屋IDを入力して部屋に入ってください。</p>
+      <button id="overlayButton">閉じる</button>
+    </div>
+  </div>
 
-function render() {
-  const placementControls = document.getElementById("placementControls");
+  <script>
+    const SERVER_URL = "https://battleship-online-server.onrender.com";
+    let boardSize = 7;
 
-  placementControls.style.display =
-    isTouchDevice &&
-    state.phase === "placement" &&
-    !state.placementSubmitted
-      ? "block"
-      : "none";
-}
+    const SHIPS = [
+      { name: "船①", cells: [[0, 0], [1, 0]] },
+      { name: "船②", cells: [[0, 0], [1, 0], [2, 0]] },
+      { name: "船③", cells: [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
+      { name: "船④", cells: [[0, 0], [1, 0], [2, 0], [3, 0]] }
+    ];
 
-render();
-</script>
+    const socket = io(SERVER_URL, { transports: ["websocket", "polling"] });
 
+    const roomIdInput = document.getElementById("roomIdInput");
+    const boardSizeSelect = document.getElementById("boardSizeSelect");
+    const joinRoomBtn = document.getElementById("joinRoomBtn");
+    const copyRoomBtn = document.getElementById("copyRoomBtn");
+
+    const roomText = document.getElementById("roomText");
+    const myPlayerText = document.getElementById("myPlayerText");
+    const phaseText = document.getElementById("phaseText");
+    const turnText = document.getElementById("turnText");
+    const guideText = document.getElementById("guideText");
+    const resultText = document.getElementById("resultText");
+
+    const ownBoardEl = document.getElementById("ownBoard");
+    const targetBoardEl = document.getElementById("targetBoard");
+
+    const rotateBtn = document.getElementById("rotateBtn");
+    const placeSelectedBtn = document.getElementById("placeSelectedBtn");
+    const submitPlacementBtn = document.getElementById("submitPlacementBtn");
+    const resetPlacementBtn = document.getElementById("resetPlacementBtn");
+
+    const floatingPlacementBar = document.getElementById("floatingPlacementBar");
+    const floatingStatus = document.getElementById("floatingStatus");
+    const floatingRotateBtn = document.getElementById("floatingRotateBtn");
+    const floatingPlaceBtn = document.getElementById("floatingPlaceBtn");
+    const floatingResetBtn = document.getElementById("floatingResetBtn");
+
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlayTitle");
+    const overlayMessage = document.getElementById("overlayMessage");
+    const overlayButton = document.getElementById("overlayButton");
+
+    let state = {
+      roomId: "",
+      myPlayerNumber: null,
+      phase: "idle",
+      turn: null,
+      winner: null,
+      players: [],
+      ownBoard: createBoard(),
+      targetBoard: createGuessBoard(),
+      placements: [],
+      currentShipIndex: 0,
+      rotation: 0,
+      selectedX: null,
+      selectedY: null,
+      joined: false,
+      placementSubmitted: false
+    };
+
+    function createBoard() {
+      return Array.from({ length: boardSize }, () =>
+        Array.from({ length: boardSize }, () => ({ ship: false, hit: false, wave: false }))
+      );
+    }
+
+    function createGuessBoard() {
+      return Array.from({ length: boardSize }, () =>
+        Array.from({ length: boardSize }, () => ({ result: null }))
+      );
+    }
+
+    function resetLocalBoards() {
+      state.ownBoard = createBoard();
+      state.targetBoard = createGuessBoard();
+      state.placements = [];
+      state.currentShipIndex = 0;
+      state.rotation = 0;
+      state.selectedX = null;
+      state.selectedY = null;
+      state.placementSubmitted = false;
+    }
+
+    function showOverlay(title, message, buttonText = "閉じる", onClick = null) {
+      overlayTitle.textContent = title;
+      overlayMessage.innerHTML = message;
+      overlayButton.textContent = buttonText;
+      overlay.classList.add("show");
+      overlayButton.onclick = () => {
+        overlay.classList.remove("show");
+        if (onClick) onClick();
+      };
+    }
+
+    function rotatePoint90([x, y]) { return [y, -x]; }
+
+    function normalizeShape(cells) {
+      const minX = Math.min(...cells.map(c => c[0]));
+      const minY = Math.min(...cells.map(c => c[1]));
+      return cells.map(([x, y]) => [x - minX, y - minY]);
+    }
+
+    function getRotatedShipCells(baseCells, rotation) {
+      let result = baseCells.map(c => [...c]);
+      for (let i = 0; i < rotation; i++) {
+        result = result.map(rotatePoint90);
+        result = normalizeShape(result);
+      }
+      return result;
+    }
+
+    function canPlaceShip(board, shipCells, originX, originY) {
+      for (const [dx, dy] of shipCells) {
+        const x = originX + dx;
+        const y = originY + dy;
+        if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) return false;
+        if (board[y][x].ship) return false;
+      }
+      return true;
+    }
+
+    function placeShipLocal(shipIndex, originX, originY, rotation) {
+      const ship = SHIPS[shipIndex];
+      const rotated = getRotatedShipCells(ship.cells, rotation);
+      if (!canPlaceShip(state.ownBoard, rotated, originX, originY)) return false;
+
+      for (const [dx, dy] of rotated) {
+        const x = originX + dx;
+        const y = originY + dy;
+        state.ownBoard[y][x].ship = true;
+      }
+
+      state.placements.push({ x: originX, y: originY, rotation });
+      return true;
+    }
+
+    function getPreviewInfo() {
+      if (state.phase !== "placement") return null;
+      if (state.placementSubmitted) return null;
+      if (state.currentShipIndex >= SHIPS.length) return null;
+      if (state.selectedX === null || state.selectedY === null) return null;
+
+      const ship = SHIPS[state.currentShipIndex];
+      const rotated = getRotatedShipCells(ship.cells, state.rotation);
+      const valid = canPlaceShip(state.ownBoard, rotated, state.selectedX, state.selectedY);
+      const cells = rotated.map(([dx, dy]) => ({ x: state.selectedX + dx, y: state.selectedY + dy }));
+      return { valid, cells, baseX: state.selectedX, baseY: state.selectedY };
+    }
+
+    function isMyTurn() { return state.phase === "battle" && state.turn === state.myPlayerNumber; }
+
+    function selectPlacementCell(x, y) {
+      if (state.phase !== "placement" || state.placementSubmitted || state.currentShipIndex >= SHIPS.length) return;
+      state.selectedX = x;
+      state.selectedY = y;
+
+      const preview = getPreviewInfo();
+      if (preview && preview.valid) {
+        resultText.textContent = "この位置に配置できます。必要なら回転してから「配置」を押してください。";
+      } else {
+        resultText.textContent = "この位置には配置できません。別のマスを選んでください。";
+      }
+      render();
+    }
+
+    function handlePlacementClick(x, y) {
+      if (state.phase !== "placement" || state.placementSubmitted || state.currentShipIndex >= SHIPS.length) return false;
+
+      const ok = placeShipLocal(state.currentShipIndex, x, y, state.rotation);
+      if (!ok) {
+        resultText.textContent = `そこには ${SHIPS[state.currentShipIndex].name} を置けません。`;
+        render();
+        return false;
+      }
+
+      resultText.textContent = "";
+      state.selectedX = null;
+      state.selectedY = null;
+
+      if (state.currentShipIndex < SHIPS.length - 1) {
+        state.currentShipIndex++;
+        state.rotation = 0;
+        resultText.textContent = `${SHIPS[state.currentShipIndex].name} の位置を選んでください。`;
+      } else {
+        state.currentShipIndex = SHIPS.length;
+        resultText.textContent = "すべての船を配置しました。「この配置で決定」を押してください。";
+      }
+      render();
+      return true;
+    }
+
+    function placeSelectedCell() {
+      const preview = getPreviewInfo();
+      if (!preview) {
+        resultText.textContent = "まず盤面を選択してください。";
+        render();
+        return;
+      }
+      if (!preview.valid) {
+        resultText.textContent = "この位置には配置できません。別のマスを選んでください。";
+        render();
+        return;
+      }
+      handlePlacementClick(preview.baseX, preview.baseY);
+    }
+
+    function rotateCurrentShip() {
+      if (!(state.joined && state.phase === "placement" && !state.placementSubmitted)) return;
+      if (state.currentShipIndex >= SHIPS.length) return;
+      state.rotation = (state.rotation + 1) % 4;
+
+      const preview = getPreviewInfo();
+      if (preview) {
+        resultText.textContent = preview.valid
+          ? "回転しました。この位置に配置できます。"
+          : "回転しましたが、この位置には配置できません。";
+      } else {
+        resultText.textContent = `回転しました。現在は ${state.rotation * 90}° 回転。盤面を選択してください。`;
+      }
+      render();
+    }
+
+    function resetPlacementWithConfirm() {
+      if (!(state.joined && state.phase === "placement" && !state.placementSubmitted)) return;
+      if (!confirm("配置をやり直しますか？")) return;
+      resetLocalBoards();
+      resultText.textContent = "配置をやり直します。船①の位置を選んでください。";
+      render();
+    }
+
+    function submitPlacement() {
+      if (state.phase !== "placement" || state.placementSubmitted) return;
+      if (state.placements.length !== SHIPS.length) {
+        resultText.textContent = "まだすべての船を配置していません。";
+        return;
+      }
+
+      socket.emit("submitPlacement", { roomId: state.roomId, placements: state.placements });
+      state.placementSubmitted = true;
+      resultText.textContent = "配置を送信しました。相手の配置完了を待っています。";
+      render();
+    }
+
+    function attackCell(x, y) {
+      if (!isMyTurn()) {
+        resultText.textContent = "あなたのターンではありません。";
+        return;
+      }
+      if (state.targetBoard[y][x].result !== null) {
+        resultText.textContent = "そのマスはすでに攻撃済みです。";
+        return;
+      }
+      socket.emit("attackCell", { roomId: state.roomId, x, y });
+    }
+
+    function renderOwnBoard() {
+      ownBoardEl.innerHTML = "";
+      const preview = getPreviewInfo();
+      const previewMap = new Map();
+
+      if (preview) {
+        for (const cell of preview.cells) {
+          if (cell.x >= 0 && cell.x < boardSize && cell.y >= 0 && cell.y < boardSize) {
+            previewMap.set(`${cell.x},${cell.y}`, preview.valid ? "valid" : "invalid");
+          }
+        }
+      }
+
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
+          const cellData = state.ownBoard[y][x];
+          const cell = document.createElement("div");
+          cell.className = "cell";
+
+          if (state.phase === "placement" && !state.placementSubmitted && state.currentShipIndex < SHIPS.length) {
+            cell.classList.add("clickable");
+            cell.addEventListener("click", () => selectPlacementCell(x, y));
+          }
+
+          if (cellData.ship) { cell.classList.add("ship"); cell.textContent = "🚢"; }
+          if (cellData.wave) { cell.classList.add("wave"); cell.textContent = "🌊"; }
+          if (cellData.hit) { cell.classList.add("hit"); cell.textContent = "🔥"; }
+
+          const previewType = previewMap.get(`${x},${y}`);
+          if (previewType === "valid" && !cellData.ship && !cellData.hit && !cellData.wave) cell.classList.add("preview-valid");
+          if (previewType === "invalid" && !cellData.ship && !cellData.hit && !cellData.wave) cell.classList.add("preview-invalid");
+          if (state.selectedX === x && state.selectedY === y && state.phase === "placement" && !state.placementSubmitted) cell.classList.add("selected-cell");
+
+          ownBoardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function renderTargetBoard() {
+      targetBoardEl.innerHTML = "";
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
+          const guess = state.targetBoard[y][x];
+          const cell = document.createElement("div");
+          cell.className = "cell empty-guess";
+          if (isMyTurn() && guess.result === null) {
+            cell.classList.add("clickable");
+            cell.addEventListener("click", () => attackCell(x, y));
+          }
+          if (guess.result === "hit") { cell.textContent = "◯"; cell.classList.add("hit"); }
+          else if (guess.result === "near") { cell.textContent = "△"; cell.classList.add("wave"); }
+          else if (guess.result === "miss") { cell.textContent = "×"; cell.classList.add("wave"); }
+          targetBoardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function renderTexts() {
+      roomText.textContent = state.joined ? `${state.roomId}（${boardSize}×${boardSize}）` : "未参加";
+      myPlayerText.textContent = state.myPlayerNumber ? `プレイヤー${state.myPlayerNumber}` : "未参加";
+
+      if (!state.joined) {
+        phaseText.textContent = "未参加";
+        turnText.textContent = "-";
+        guideText.textContent = "部屋IDを入力して「部屋に入る」を押してください。";
+        document.getElementById("ownBoardTitle").textContent = "自分マス";
+        document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス";
+        return;
+      }
+
+      if (state.phase === "waiting") {
+        phaseText.textContent = "待機中";
+        turnText.textContent = "-";
+        guideText.textContent = "相手の参加を待っています。";
+        document.getElementById("ownBoardTitle").textContent = "自分マス";
+        document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス";
+        return;
+      }
+
+      if (state.phase === "placement") {
+        phaseText.textContent = "船の配置";
+        turnText.textContent = "-";
+        if (state.placementSubmitted) guideText.textContent = "配置送信済みです。相手の配置完了を待っています。";
+        else if (state.currentShipIndex < SHIPS.length) guideText.textContent = `${SHIPS[state.currentShipIndex].name} の位置を選び、必要なら回転し、「配置」を押してください。`;
+        else guideText.textContent = "すべて配置済みです。「この配置で決定」を押してください。";
+        document.getElementById("ownBoardTitle").textContent = "あなたの自分マス（配置用）";
+        document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス（配置中は未使用）";
+        return;
+      }
+
+      if (state.phase === "battle") {
+        phaseText.textContent = "対戦中";
+        turnText.textContent = state.turn ? `プレイヤー${state.turn}` : "-";
+        guideText.textContent = isMyTurn() ? "あなたのターンです。右の盤面を1マスクリックして攻撃してください。" : "相手のターンです。待ってください。";
+        document.getElementById("ownBoardTitle").textContent = "あなたの自分マス";
+        document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス";
+        return;
+      }
+
+      if (state.phase === "finished") {
+        phaseText.textContent = "ゲーム終了";
+        turnText.textContent = "-";
+        guideText.textContent = state.winner === state.myPlayerNumber ? "あなたの勝利です。" : "あなたの敗北です。";
+        document.getElementById("ownBoardTitle").textContent = "あなたの自分マス";
+        document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス";
+      }
+    }
+
+    function renderButtons() {
+      const canPlace = state.joined && state.phase === "placement" && !state.placementSubmitted;
+      const hasAllShips = state.placements.length === SHIPS.length;
+      const preview = getPreviewInfo();
+      const canConfirmCell = canPlace && preview && preview.valid;
+      const canRotateOrReset = canPlace && state.currentShipIndex < SHIPS.length;
+
+      rotateBtn.disabled = !canRotateOrReset;
+      placeSelectedBtn.disabled = !canConfirmCell;
+      resetPlacementBtn.disabled = !canRotateOrReset && state.placements.length === 0;
+      submitPlacementBtn.disabled = !(canPlace && hasAllShips);
+
+      floatingPlacementBar.classList.toggle("show", canPlace);
+      floatingRotateBtn.disabled = !canRotateOrReset;
+      floatingPlaceBtn.disabled = !canConfirmCell;
+      floatingResetBtn.disabled = !canRotateOrReset && state.placements.length === 0;
+
+      if (!canPlace) {
+        floatingStatus.textContent = "";
+      } else if (hasAllShips) {
+        floatingStatus.textContent = "配置完了。上の「この配置で決定」を押してください。";
+      } else if (!preview) {
+        floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 盤面を選択`;
+      } else if (preview.valid) {
+        floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 配置できます`;
+      } else {
+        floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 配置不可`;
+      }
+    }
+
+
+    function setShipDetailsDefault() {
+      const details = document.querySelector(".ship-details");
+      if (!details) return;
+      details.open = window.innerWidth >= 981;
+    }
+
+    window.addEventListener("resize", () => {
+      const details = document.querySelector(".ship-details");
+      if (!details) return;
+      if (window.innerWidth >= 981) {
+        details.open = true;
+      }
+    });
+
+    function render() {
+      ownBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
+      ownBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
+      targetBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
+      targetBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
+      renderTexts();
+      renderButtons();
+      renderOwnBoard();
+      renderTargetBoard();
+    }
+
+    joinRoomBtn.addEventListener("click", () => {
+      const roomId = roomIdInput.value.trim().toUpperCase();
+      if (!roomId) { resultText.textContent = "部屋IDを入力してください。"; return; }
+      resultText.textContent = "";
+      socket.emit("joinRoom", { roomId, boardSize: Number(boardSizeSelect.value) });
+    });
+
+    roomIdInput.addEventListener("keydown", event => { if (event.key === "Enter") joinRoomBtn.click(); });
+
+    copyRoomBtn.addEventListener("click", async () => {
+      const roomId = roomIdInput.value.trim().toUpperCase() || state.roomId;
+      if (!roomId) { resultText.textContent = "コピーする部屋IDがありません。"; return; }
+      try { await navigator.clipboard.writeText(roomId); resultText.textContent = `部屋ID「${roomId}」をコピーしました。`; }
+      catch (error) { resultText.textContent = "部屋IDのコピーに失敗しました。"; }
+    });
+
+    rotateBtn.addEventListener("click", rotateCurrentShip);
+    floatingRotateBtn.addEventListener("click", rotateCurrentShip);
+    placeSelectedBtn.addEventListener("click", placeSelectedCell);
+    floatingPlaceBtn.addEventListener("click", placeSelectedCell);
+    resetPlacementBtn.addEventListener("click", resetPlacementWithConfirm);
+    floatingResetBtn.addEventListener("click", resetPlacementWithConfirm);
+    submitPlacementBtn.addEventListener("click", submitPlacement);
+
+    overlayButton.addEventListener("click", () => { overlay.classList.remove("show"); });
+
+    socket.on("connect", () => { resultText.textContent = "サーバーに接続しました。"; });
+    socket.on("disconnect", () => { resultText.textContent = "サーバーとの接続が切れました。"; });
+
+    socket.on("joinedRoom", ({ roomId, playerNumber, boardSize: serverBoardSize }) => {
+      state.roomId = roomId;
+      state.myPlayerNumber = playerNumber;
+      state.joined = true;
+      boardSize = serverBoardSize;
+      boardSizeSelect.value = String(boardSize);
+      resetLocalBoards();
+      resultText.textContent = `部屋 ${roomId} に入りました。あなたはプレイヤー${playerNumber}です。盤面は ${boardSize}×${boardSize} です。`;
+      render();
+    });
+
+    socket.on("roomState", room => {
+      if (room.boardSize && room.boardSize !== boardSize) {
+        boardSize = room.boardSize;
+        boardSizeSelect.value = String(boardSize);
+        resetLocalBoards();
+      }
+      state.phase = room.phase;
+      state.turn = room.turn;
+      state.winner = room.winner;
+      state.players = room.players || [];
+      if (state.phase === "waiting") resetLocalBoards();
+      render();
+    });
+
+    socket.on("placementAccepted", ({ ownBoard }) => {
+      state.ownBoard = ownBoard;
+      state.placementSubmitted = true;
+      resultText.textContent = "配置が受理されました。";
+      render();
+    });
+
+    socket.on("attackResult", ({ x, y, result }) => {
+      state.targetBoard[y][x].result = result;
+      if (result === "hit") resultText.textContent = `(${x + 1}, ${y + 1}) に命中しました。`;
+      else if (result === "near") resultText.textContent = `(${x + 1}, ${y + 1}) は船の隣でした。`;
+      else resultText.textContent = `(${x + 1}, ${y + 1}) ははずれでした。`;
+      render();
+    });
+
+    socket.on("defenseResult", ({ x, y, result }) => {
+      if (result === "hit") state.ownBoard[y][x].hit = true;
+      else state.ownBoard[y][x].wave = true;
+      render();
+    });
+
+    socket.on("gameOver", ({ winner }) => {
+      state.phase = "finished";
+      state.winner = winner;
+      if (winner === state.myPlayerNumber) { resultText.textContent = "勝利！"; showOverlay("ゲーム終了", "あなたの勝利です。"); }
+      else { resultText.textContent = "敗北..."; showOverlay("ゲーム終了", "あなたの敗北です。"); }
+      render();
+    });
+
+    socket.on("systemMessage", message => { showOverlay("お知らせ", message); });
+
+    socket.on("errorMessage", message => {
+      resultText.textContent = message;
+      if (state.phase === "placement" && state.placementSubmitted) state.placementSubmitted = false;
+      render();
+    });
+
+    setShipDetailsDefault();
+    render();
+  </script>
 </body>
 </html>
