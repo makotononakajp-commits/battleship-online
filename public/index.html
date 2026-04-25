@@ -324,7 +324,7 @@
           <button id="resetPlacementBtn" class="secondary" disabled>配置をやり直す</button>
         </div>
         <div class="small-note">
-          船③は 2×3 から1マス除く形です。PCではマウスを乗せて確認しクリックで配置、スマホではタップで候補を選び「この位置に配置」で確定します。
+          船③は 2×3 から1マス除く形です。PCではマウスを乗せると候補表示、スマホでは盤面をタップして候補表示し、「この位置に配置」で確定します。
         </div>
       </div>
     </div>
@@ -579,11 +579,9 @@
       const rotated = getRotatedShipCells(ship.cells, state.rotation);
       const valid = canPlaceShip(state.ownBoard, rotated, x, y);
 
-      if (valid) {
-        resultText.textContent = "この位置に配置できます。「この位置に配置」を押してください。";
-      } else {
-        resultText.textContent = "この位置には配置できません。別のマスを選んでください。";
-      }
+      resultText.textContent = valid
+        ? "この位置に配置できます。「この位置に配置」を押してください。"
+        : "この位置には配置できません。別のマスを選んでください。";
 
       render();
     }
@@ -619,16 +617,13 @@
 
     function placeSelectedCell() {
       if (!isTouchDevice) return;
+
       if (state.selectedX === null || state.selectedY === null) {
         resultText.textContent = "まず盤面をタップして配置場所を選んでください。";
         return;
       }
 
       handlePlacementClick(state.selectedX, state.selectedY);
-
-      state.selectedX = null;
-      state.selectedY = null;
-      render();
     }
 
     function submitPlacement() {
@@ -915,16 +910,22 @@
 
     rotateBtn.addEventListener("click", () => {
       if (rotateBtn.disabled) return;
+
       state.rotation = (state.rotation + 1) % 4;
 
       if (isTouchDevice && state.selectedX !== null && state.selectedY !== null) {
         const ship = SHIPS[state.currentShipIndex];
         const rotated = getRotatedShipCells(ship.cells, state.rotation);
-        const valid = canPlaceShip(state.ownBoard, rotated, state.selectedX, state.selectedY);
+        const valid = canPlaceShip(
+          state.ownBoard,
+          rotated,
+          state.selectedX,
+          state.selectedY
+        );
 
         resultText.textContent = valid
           ? "回転しました。この位置に配置できます。"
-          : "回転しましたが、この位置には配置できません。";
+          : "回転しましたが、この位置には配置できません。別の位置を選んでください。";
       } else {
         resultText.textContent = `回転しました。現在は ${state.rotation * 90}° 回転。`;
       }
@@ -950,6 +951,7 @@
 
     ownBoardEl.addEventListener("mouseleave", () => {
       if (state.phase !== "placement") return;
+      if (isTouchDevice) return;
       state.hoverX = null;
       state.hoverY = null;
       render();
