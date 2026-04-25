@@ -105,6 +105,13 @@
       background: #b02a37;
     }
 
+    select {
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
     .boards {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -285,6 +292,11 @@
   <div class="container">
     <div class="panel">
       <div class="room-box">
+        <select id="boardSizeSelect">
+          <option value="7">7×7</option>
+          <option value="8">8×8</option>
+          <option value="9">9×9</option>
+        </select>
         <input id="roomIdInput" type="text" placeholder="部屋IDを入力（例: ABC123）" />
         <button id="joinRoomBtn">部屋に入る</button>
         <button id="copyRoomBtn" class="secondary">部屋IDをコピー</button>
@@ -359,7 +371,7 @@
 
   <script>
     const SERVER_URL = "https://battleship-online-server.onrender.com";
-    const SIZE = 7;
+    let boardSize = 7;
 
     const SHIPS = [
       { name: "船①", cells: [[0, 0], [1, 0]] },
@@ -373,6 +385,7 @@
     });
 
     const roomIdInput = document.getElementById("roomIdInput");
+    const boardSizeSelect = document.getElementById("boardSizeSelect");
     const joinRoomBtn = document.getElementById("joinRoomBtn");
     const copyRoomBtn = document.getElementById("copyRoomBtn");
 
@@ -415,8 +428,8 @@
     };
 
     function createBoard() {
-      return Array.from({ length: SIZE }, () =>
-        Array.from({ length: SIZE }, () => ({
+      return Array.from({ length: boardSize }, () =>
+        Array.from({ length: boardSize }, () => ({
           ship: false,
           hit: false,
           wave: false
@@ -425,8 +438,8 @@
     }
 
     function createGuessBoard() {
-      return Array.from({ length: SIZE }, () =>
-        Array.from({ length: SIZE }, () => ({
+      return Array.from({ length: boardSize }, () =>
+        Array.from({ length: boardSize }, () => ({
           result: null
         }))
       );
@@ -478,7 +491,7 @@
         const x = originX + dx;
         const y = originY + dy;
 
-        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return false;
+        if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) return false;
         if (board[y][x].ship) return false;
       }
       return true;
@@ -602,14 +615,14 @@
 
       if (preview) {
         for (const cell of preview.cells) {
-          if (cell.x >= 0 && cell.x < SIZE && cell.y >= 0 && cell.y < SIZE) {
+          if (cell.x >= 0 && cell.x < boardSize && cell.y >= 0 && cell.y < boardSize) {
             previewMap.set(`${cell.x},${cell.y}`, preview.valid ? "valid" : "invalid");
           }
         }
       }
 
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
           const cellData = state.ownBoard[y][x];
           const cell = document.createElement("div");
           cell.className = "cell";
@@ -667,8 +680,8 @@
     function renderTargetBoard() {
       targetBoardEl.innerHTML = "";
 
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
           const guess = state.targetBoard[y][x];
           const cell = document.createElement("div");
           cell.className = "cell empty-guess";
@@ -695,7 +708,9 @@
     }
 
     function renderTexts() {
-      roomText.textContent = state.joined ? state.roomId : "未参加";
+      roomText.textContent = state.joined
+      ? `${state.roomId}（${boardSize}×${boardSize}）`
+      : "未参加";
       myPlayerText.textContent = state.myPlayerNumber ? `プレイヤー${state.myPlayerNumber}` : "未参加";
 
       if (!state.joined) {
@@ -771,6 +786,11 @@
     }
 
     function render() {
+      ownBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
+      ownBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
+      targetBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
+      targetBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
+      
       renderTexts();
       renderButtons();
       renderOwnBoard();
@@ -785,7 +805,12 @@
       }
 
       resultText.textContent = "";
-      socket.emit("joinRoom", { roomId });
+      const selectedBoardSize = Number(boardSizeSelect.value);
+
+      socket.emit("joinRoom", {
+        roomId,
+        boardSize: selectedBoardSize
+      });
     });
 
     roomIdInput.addEventListener("keydown", event => {
@@ -847,16 +872,25 @@
       resultText.textContent = "サーバーとの接続が切れました。";
     });
 
-    socket.on("joinedRoom", ({ roomId, playerNumber }) => {
+    socket.on("joinedRoom", ({ roomId, playerNumber, boardSize: serverBoardSize }) => {
       state.roomId = roomId;
       state.myPlayerNumber = playerNumber;
       state.joined = true;
+
+      boardSize = serverBoardSize;
+      boardSizeSelect.value = String(boardSize);
+      
       resetLocalBoards();
-      resultText.textContent = `部屋 ${roomId} に入りました。あなたはプレイヤー${playerNumber}です。`;
+      resultText.textContent = `部屋 ${roomId} に入りました。あなたはプレイヤー${playerNumber}です。盤面は ${boardSize}×${boardSize} です。`;
       render();
     });
 
     socket.on("roomState", room => {
+      if (room.boardSize && room.boardSize !== boardSize) {
+        boardSize = room.boardSize;
+        boardSizeSelect.value = String(boardSize);
+        resetLocalBoards();
+      }
       state.phase = room.phase;
       state.turn = room.turn;
       state.winner = room.winner;
