@@ -200,7 +200,7 @@
         <div id="resultText" class="message"></div>
       </div>
 
-      <div>
+      <div id="placementControls">
         <div class="controls">
           <button id="rotateBtn" disabled>船を回転</button>
           <button id="placeSelectedBtn" disabled>この位置に配置</button>
@@ -210,6 +210,15 @@
         <div class="small-note">
           配置中は、まず盤面を選択し、必要なら回転し、「この位置に配置」で確定します。画面下部にも同じ操作バーが表示されます。
         </div>
+      <div id="attackControls" class="phase-controls attack-controls">
+        <div class="controls">
+          <button id="attackGuideBtn" disabled>相手マスを選んで攻撃</button>
+        </div>
+        <div class="small-note">
+          対戦中は、あなたのターンのときだけ「相手マス / 自分予想マス」をタップして攻撃できます。
+        </div>
+      </div>
+
       </div>
     </div>
 
@@ -295,6 +304,9 @@
     const placeSelectedBtn = document.getElementById("placeSelectedBtn");
     const submitPlacementBtn = document.getElementById("submitPlacementBtn");
     const resetPlacementBtn = document.getElementById("resetPlacementBtn");
+    const placementControls = document.getElementById("placementControls");
+    const attackControls = document.getElementById("attackControls");
+    const attackGuideBtn = document.getElementById("attackGuideBtn");
 
     const floatingPlacementBar = document.getElementById("floatingPlacementBar");
     const floatingStatus = document.getElementById("floatingStatus");
@@ -628,6 +640,32 @@
       }
     }
 
+
+    function renderPhaseControls() {
+      if (placementControls) {
+        placementControls.style.display =
+          isTouchDevice &&
+          state.phase === "placement" &&
+          !state.placementSubmitted
+            ? "block"
+            : "none";
+      }
+
+      if (attackControls) {
+        attackControls.style.display =
+          isTouchDevice &&
+          state.phase === "battle"
+            ? "block"
+            : "none";
+      }
+
+      if (attackGuideBtn) {
+        attackGuideBtn.textContent = isMyTurn()
+          ? "相手マスをタップして攻撃"
+          : "相手のターンです";
+      }
+    }
+
     function renderButtons() {
       const canPlace = state.joined && state.phase === "placement" && !state.placementSubmitted;
       const hasAllShips = state.placements.length === SHIPS.length;
@@ -679,6 +717,7 @@
       targetBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
       targetBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
       renderTexts();
+      renderPhaseControls();
       renderButtons();
       renderOwnBoard();
       renderTargetBoard();
