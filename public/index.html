@@ -240,7 +240,7 @@
         <span>🟩+緑枠 配置可能</span>
         <span>🟥+赤枠 配置不可</span>
         <span>🟧 選択中</span>
-        <span>◯ 命中</span>
+        <span>● 命中</span>
         <span>△ 船の隣（上下左右のみ）</span>
         <span>× はずれ</span>
         <span>🔥 相手に当てられた船</span>
@@ -570,7 +570,7 @@
             cell.classList.add("clickable");
             cell.addEventListener("click", () => attackCell(x, y));
           }
-          if (guess.result === "hit") { cell.textContent = "◯"; cell.classList.add("hit"); }
+          if (guess.result === "hit") { cell.textContent = "●"; cell.classList.add("hit"); }
           else if (guess.result === "near") { cell.textContent = "△"; cell.classList.add("wave"); }
           else if (guess.result === "miss") { cell.textContent = "×"; cell.classList.add("wave"); }
           targetBoardEl.appendChild(cell);
