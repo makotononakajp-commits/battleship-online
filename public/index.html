@@ -216,6 +216,16 @@
       .floating-placement-bar button { min-width: 76px; padding: 12px 10px; }
       .desktop-placement-controls { display: none; }
       body { padding-bottom: 112px; }
+
+      .floating-placement-bar {
+        gap: 6px;
+      }
+      .floating-placement-bar button {
+        min-width: 62px;
+        padding: 12px 8px;
+        font-size: 14px;
+      }
+
     }
   </style>
 </head>
@@ -302,6 +312,7 @@
     <div id="floatingStatus" class="floating-status">盤面を選択してください</div>
     <button id="floatingRotateBtn">回転</button>
     <button id="floatingPlaceBtn">配置</button>
+    <button id="floatingSubmitBtn">決定</button>
     <button id="floatingResetBtn" class="secondary">やり直し</button>
   </div>
 
@@ -354,6 +365,7 @@
     const floatingStatus = document.getElementById("floatingStatus");
     const floatingRotateBtn = document.getElementById("floatingRotateBtn");
     const floatingPlaceBtn = document.getElementById("floatingPlaceBtn");
+    const floatingSubmitBtn = document.getElementById("floatingSubmitBtn");
     const floatingResetBtn = document.getElementById("floatingResetBtn");
     const floatingAttackBar = document.getElementById("floatingAttackBar");
     const floatingAttackStatus = document.getElementById("floatingAttackStatus");
@@ -706,6 +718,7 @@
       floatingPlacementBar.classList.toggle("show", canPlace);
       floatingRotateBtn.disabled = !canRotateOrReset;
       floatingPlaceBtn.disabled = !canConfirmCell;
+      floatingSubmitBtn.disabled = !(canPlace && hasAllShips);
       floatingResetBtn.disabled = !canRotateOrReset && state.placements.length === 0;
 
       const isBattle = state.joined && state.phase === "battle";
@@ -723,7 +736,7 @@
       if (!canPlace) {
         floatingStatus.textContent = "";
       } else if (hasAllShips) {
-        floatingStatus.textContent = "配置完了。「この配置で決定」を押してください。";
+        floatingStatus.textContent = "配置完了。下の「決定」を押してください。";
       } else if (!preview) {
         floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 盤面を選択`;
       } else if (preview.valid) {
@@ -784,6 +797,7 @@
     floatingRotateBtn.addEventListener("click", rotateCurrentShip);
     placeSelectedBtn.addEventListener("click", placeSelectedCell);
     floatingPlaceBtn.addEventListener("click", placeSelectedCell);
+    floatingSubmitBtn.addEventListener("click", submitPlacement);
     resetPlacementBtn.addEventListener("click", resetPlacementWithConfirm);
     floatingResetBtn.addEventListener("click", resetPlacementWithConfirm);
     submitPlacementBtn.addEventListener("click", submitPlacement);
