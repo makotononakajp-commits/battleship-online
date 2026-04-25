@@ -6,15 +6,14 @@
   <title>海戦ゲーム オンライン対戦</title>
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       font-family: sans-serif;
       margin: 0;
       background: #f4f8fb;
       color: #222;
+      padding-bottom: 96px;
     }
 
     header {
@@ -23,22 +22,10 @@
       padding: 16px 20px;
     }
 
-    header h1 {
-      margin: 0 0 8px 0;
-      font-size: 24px;
-    }
+    header h1 { margin: 0 0 8px 0; font-size: 24px; }
+    header p { margin: 0; font-size: 14px; opacity: 0.95; }
 
-    header p {
-      margin: 0;
-      font-size: 14px;
-      opacity: 0.95;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
 
     .panel {
       background: white;
@@ -48,35 +35,19 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
-    .top-info {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 16px;
-    }
+    .top-info { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    .status { font-size: 16px; line-height: 1.8; }
+    .status strong { color: #1f4e79; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
-    .status {
-      font-size: 16px;
-      line-height: 1.8;
-    }
-
-    .status strong {
-      color: #1f4e79;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    input[type="text"] {
+    input[type="text"], select {
       border: 1px solid #bbb;
       border-radius: 8px;
       padding: 10px 12px;
       font-size: 14px;
-      min-width: 180px;
     }
+
+    input[type="text"] { min-width: 180px; }
 
     button {
       border: none;
@@ -88,41 +59,13 @@
       color: white;
     }
 
-    button:hover {
-      opacity: 0.92;
-    }
+    button:hover { opacity: 0.92; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #6c757d; }
+    button.warn { background: #b02a37; }
 
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    button.secondary {
-      background: #6c757d;
-    }
-
-    button.warn {
-      background: #b02a37;
-    }
-
-    select {
-      border: 1px solid #bbb;
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 14px;
-    }
-
-    .boards {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-    }
-
-    .board-wrap h2 {
-      margin-top: 0;
-      margin-bottom: 10px;
-      font-size: 20px;
-    }
+    .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .board-wrap h2 { margin-top: 0; margin-bottom: 10px; font-size: 20px; }
 
     .grid {
       display: grid;
@@ -130,6 +73,7 @@
       grid-template-rows: repeat(7, 54px);
       gap: 4px;
       justify-content: start;
+      touch-action: manipulation;
     }
 
     .cell {
@@ -147,70 +91,22 @@
       font-weight: bold;
     }
 
-    .cell.clickable {
-      cursor: pointer;
-    }
+    .cell.clickable { cursor: pointer; }
+    .cell.clickable:hover { transform: scale(1.03); background: #b9ddff; }
+    .cell.ship { background: #8fbc8f; border-color: #5d8b5d; }
+    .cell.hit { background: #ffd6d6; }
+    .cell.wave { background: #dff3ff; }
+    .cell.empty-guess { background: #eef7ff; }
+    .cell.preview-valid { background: #bfe8bf !important; outline: 2px solid #2e8b57; }
+    .cell.preview-invalid { background: #f6c0c0 !important; outline: 2px solid #c0392b; }
+    .cell.selected-cell { outline: 4px solid #f6a400 !important; box-shadow: 0 0 0 3px rgba(246,164,0,0.22); }
 
-    .cell.clickable:hover {
-      transform: scale(1.03);
-      background: #b9ddff;
-    }
-
-    .cell.ship {
-      background: #8fbc8f;
-      border-color: #5d8b5d;
-    }
-
-    .cell.hit {
-      background: #ffd6d6;
-    }
-
-    .cell.wave {
-      background: #dff3ff;
-    }
-
-    .cell.empty-guess {
-      background: #eef7ff;
-    }
-
-    .cell.preview-valid {
-      background: #bfe8bf !important;
-      outline: 2px solid #2e8b57;
-    }
-
-    .cell.preview-invalid {
-      background: #f6c0c0 !important;
-      outline: 2px solid #c0392b;
-    }
-
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 16px;
-      font-size: 14px;
-      margin-top: 10px;
-    }
-
-    .legend span {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .message {
-      font-size: 18px;
-      font-weight: bold;
-      color: #b02a37;
-      margin-top: 10px;
-      min-height: 1.5em;
-    }
-
-    .ship-list {
-      margin: 0;
-      padding-left: 20px;
-      line-height: 1.8;
-      font-size: 14px;
-    }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 14px; margin-top: 10px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .message { font-size: 18px; font-weight: bold; color: #b02a37; margin-top: 10px; min-height: 1.5em; }
+    .ship-list { margin: 0; padding-left: 20px; line-height: 1.8; font-size: 14px; }
+    .small-note { font-size: 13px; color: #555; margin-top: 8px; }
+    .room-box { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
     .overlay {
       position: fixed;
@@ -223,10 +119,7 @@
       padding: 20px;
     }
 
-    .overlay.show {
-      display: flex;
-    }
-
+    .overlay.show { display: flex; }
     .overlay-card {
       background: white;
       width: min(620px, 92vw);
@@ -235,51 +128,44 @@
       text-align: center;
       box-shadow: 0 12px 40px rgba(0,0,0,0.25);
     }
+    .overlay-card h2 { margin-top: 0; color: #1f4e79; }
+    .overlay-card p { line-height: 1.8; margin-bottom: 18px; white-space: pre-line; }
 
-    .overlay-card h2 {
-      margin-top: 0;
-      color: #1f4e79;
-    }
-
-    .overlay-card p {
-      line-height: 1.8;
-      margin-bottom: 18px;
-      white-space: pre-line;
-    }
-
-    .small-note {
-      font-size: 13px;
-      color: #555;
-      margin-top: 8px;
-    }
-
-    .hidden {
+    .floating-placement-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
       display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(255,255,255,0.97);
+      box-shadow: 0 -4px 18px rgba(0,0,0,0.18);
+      z-index: 1100;
+      border-top: 1px solid #d9e2ea;
     }
 
-    .room-box {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
+    .floating-placement-bar.show { display: flex; }
+    .floating-placement-bar button { min-width: 86px; padding: 12px 14px; font-size: 15px; }
+    .floating-status {
+      display: none;
+      font-size: 13px;
+      color: #333;
+      max-width: 240px;
+      line-height: 1.35;
     }
 
     @media (max-width: 980px) {
-      .top-info,
-      .boards {
-        grid-template-columns: 1fr;
-      }
-
-      .grid {
-        grid-template-columns: repeat(7, 44px);
-        grid-template-rows: repeat(7, 44px);
-      }
-
-      .cell {
-        width: 44px;
-        height: 44px;
-        font-size: 20px;
-      }
+      .top-info, .boards { grid-template-columns: 1fr; }
+      .container { padding: 14px; }
+      header h1 { font-size: 22px; }
+      .grid { grid-template-columns: repeat(7, 44px); grid-template-rows: repeat(7, 44px); gap: 4px; }
+      .cell { width: 44px; height: 44px; font-size: 20px; }
+      .floating-status { display: block; }
+      .floating-placement-bar { justify-content: space-around; }
+      .floating-placement-bar button { min-width: 76px; padding: 12px 10px; }
     }
   </style>
 </head>
@@ -301,9 +187,7 @@
         <button id="joinRoomBtn">部屋に入る</button>
         <button id="copyRoomBtn" class="secondary">部屋IDをコピー</button>
       </div>
-      <div class="small-note">
-        2人とも同じ部屋IDを入力してください。
-      </div>
+      <div class="small-note">2人とも同じ部屋IDを入力してください。</div>
     </div>
 
     <div class="panel top-info">
@@ -324,7 +208,7 @@
           <button id="resetPlacementBtn" class="secondary" disabled>配置をやり直す</button>
         </div>
         <div class="small-note">
-          船③は 2×3 から1マス除く形です。PCではマウスを乗せると候補表示、スマホでは盤面をタップして候補表示し、「この位置に配置」で確定します。
+          配置中は、まず盤面を選択し、必要なら回転し、「この位置に配置」で確定します。画面下部にも同じ操作バーが表示されます。
         </div>
       </div>
     </div>
@@ -341,6 +225,7 @@
         <span>🟩 自分の船</span>
         <span>🟩+緑枠 配置可能</span>
         <span>🟥+赤枠 配置不可</span>
+        <span>🟧 選択中</span>
         <span>◯ 命中</span>
         <span>△ 船の隣（上下左右のみ）</span>
         <span>× はずれ</span>
@@ -362,6 +247,13 @@
     </div>
   </div>
 
+  <div id="floatingPlacementBar" class="floating-placement-bar">
+    <div id="floatingStatus" class="floating-status">盤面を選択してください</div>
+    <button id="floatingRotateBtn">回転</button>
+    <button id="floatingPlaceBtn">配置</button>
+    <button id="floatingResetBtn" class="secondary">やり直し</button>
+  </div>
+
   <div id="overlay" class="overlay show">
     <div class="overlay-card">
       <h2 id="overlayTitle">オンライン対戦へようこそ</h2>
@@ -374,9 +266,6 @@
     const SERVER_URL = "https://battleship-online-server.onrender.com";
     let boardSize = 7;
 
-    const isTouchDevice =
-      "ontouchstart" in window || navigator.maxTouchPoints > 0;
-
     const SHIPS = [
       { name: "船①", cells: [[0, 0], [1, 0]] },
       { name: "船②", cells: [[0, 0], [1, 0], [2, 0]] },
@@ -384,9 +273,7 @@
       { name: "船④", cells: [[0, 0], [1, 0], [2, 0], [3, 0]] }
     ];
 
-    const socket = io(SERVER_URL, {
-      transports: ["websocket", "polling"]
-    });
+    const socket = io(SERVER_URL, { transports: ["websocket", "polling"] });
 
     const roomIdInput = document.getElementById("roomIdInput");
     const boardSizeSelect = document.getElementById("boardSizeSelect");
@@ -408,6 +295,12 @@
     const submitPlacementBtn = document.getElementById("submitPlacementBtn");
     const resetPlacementBtn = document.getElementById("resetPlacementBtn");
 
+    const floatingPlacementBar = document.getElementById("floatingPlacementBar");
+    const floatingStatus = document.getElementById("floatingStatus");
+    const floatingRotateBtn = document.getElementById("floatingRotateBtn");
+    const floatingPlaceBtn = document.getElementById("floatingPlaceBtn");
+    const floatingResetBtn = document.getElementById("floatingResetBtn");
+
     const overlay = document.getElementById("overlay");
     const overlayTitle = document.getElementById("overlayTitle");
     const overlayMessage = document.getElementById("overlayMessage");
@@ -425,30 +318,21 @@
       placements: [],
       currentShipIndex: 0,
       rotation: 0,
-      hoverX: null,
-      hoverY: null,
       selectedX: null,
       selectedY: null,
-      needsRender: false,
       joined: false,
       placementSubmitted: false
     };
 
     function createBoard() {
       return Array.from({ length: boardSize }, () =>
-        Array.from({ length: boardSize }, () => ({
-          ship: false,
-          hit: false,
-          wave: false
-        }))
+        Array.from({ length: boardSize }, () => ({ ship: false, hit: false, wave: false }))
       );
     }
 
     function createGuessBoard() {
       return Array.from({ length: boardSize }, () =>
-        Array.from({ length: boardSize }, () => ({
-          result: null
-        }))
+        Array.from({ length: boardSize }, () => ({ result: null }))
       );
     }
 
@@ -458,8 +342,6 @@
       state.placements = [];
       state.currentShipIndex = 0;
       state.rotation = 0;
-      state.hoverX = null;
-      state.hoverY = null;
       state.selectedX = null;
       state.selectedY = null;
       state.placementSubmitted = false;
@@ -476,9 +358,7 @@
       };
     }
 
-    function rotatePoint90([x, y]) {
-      return [y, -x];
-    }
+    function rotatePoint90([x, y]) { return [y, -x]; }
 
     function normalizeShape(cells) {
       const minX = Math.min(...cells.map(c => c[0]));
@@ -499,7 +379,6 @@
       for (const [dx, dy] of shipCells) {
         const x = originX + dx;
         const y = originY + dy;
-
         if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) return false;
         if (board[y][x].ship) return false;
       }
@@ -509,10 +388,7 @@
     function placeShipLocal(shipIndex, originX, originY, rotation) {
       const ship = SHIPS[shipIndex];
       const rotated = getRotatedShipCells(ship.cells, rotation);
-
-      if (!canPlaceShip(state.ownBoard, rotated, originX, originY)) {
-        return false;
-      }
+      if (!canPlaceShip(state.ownBoard, rotated, originX, originY)) return false;
 
       for (const [dx, dy] of rotated) {
         const x = originX + dx;
@@ -520,12 +396,7 @@
         state.ownBoard[y][x].ship = true;
       }
 
-      state.placements.push({
-        x: originX,
-        y: originY,
-        rotation
-      });
-
+      state.placements.push({ x: originX, y: originY, rotation });
       return true;
     }
 
@@ -533,112 +404,104 @@
       if (state.phase !== "placement") return null;
       if (state.placementSubmitted) return null;
       if (state.currentShipIndex >= SHIPS.length) return null;
-
-      let baseX = null;
-      let baseY = null;
-
-      if (isTouchDevice) {
-        baseX = state.selectedX;
-        baseY = state.selectedY;
-      } else {
-        baseX = state.hoverX;
-        baseY = state.hoverY;
-      }
-
-      if (baseX === null || baseY === null) return null;
+      if (state.selectedX === null || state.selectedY === null) return null;
 
       const ship = SHIPS[state.currentShipIndex];
       const rotated = getRotatedShipCells(ship.cells, state.rotation);
-      const valid = canPlaceShip(state.ownBoard, rotated, baseX, baseY);
-
-      const cells = rotated.map(([dx, dy]) => ({
-        x: baseX + dx,
-        y: baseY + dy
-      }));
-
-      return { valid, cells, baseX, baseY };
+      const valid = canPlaceShip(state.ownBoard, rotated, state.selectedX, state.selectedY);
+      const cells = rotated.map(([dx, dy]) => ({ x: state.selectedX + dx, y: state.selectedY + dy }));
+      return { valid, cells, baseX: state.selectedX, baseY: state.selectedY };
     }
 
-    function isMyTurn() {
-      return state.phase === "battle" && state.turn === state.myPlayerNumber;
-    }
-
-    function getOtherPlayer() {
-      return state.players.find(p => p.playerNumber !== state.myPlayerNumber) || null;
-    }
+    function isMyTurn() { return state.phase === "battle" && state.turn === state.myPlayerNumber; }
 
     function selectPlacementCell(x, y) {
-      if (state.phase !== "placement") return;
-      if (state.placementSubmitted) return;
-      if (state.currentShipIndex >= SHIPS.length) return;
-
+      if (state.phase !== "placement" || state.placementSubmitted || state.currentShipIndex >= SHIPS.length) return;
       state.selectedX = x;
       state.selectedY = y;
 
-      const ship = SHIPS[state.currentShipIndex];
-      const rotated = getRotatedShipCells(ship.cells, state.rotation);
-      const valid = canPlaceShip(state.ownBoard, rotated, x, y);
-
-      resultText.textContent = valid
-        ? "この位置に配置できます。「この位置に配置」を押してください。"
-        : "この位置には配置できません。別のマスを選んでください。";
-
+      const preview = getPreviewInfo();
+      if (preview && preview.valid) {
+        resultText.textContent = "この位置に配置できます。必要なら回転してから「配置」を押してください。";
+      } else {
+        resultText.textContent = "この位置には配置できません。別のマスを選んでください。";
+      }
       render();
     }
 
     function handlePlacementClick(x, y) {
-      if (state.phase !== "placement") return;
-      if (state.placementSubmitted) return;
-      if (state.currentShipIndex >= SHIPS.length) return;
+      if (state.phase !== "placement" || state.placementSubmitted || state.currentShipIndex >= SHIPS.length) return false;
 
       const ok = placeShipLocal(state.currentShipIndex, x, y, state.rotation);
       if (!ok) {
         resultText.textContent = `そこには ${SHIPS[state.currentShipIndex].name} を置けません。`;
         render();
-        return;
+        return false;
       }
 
       resultText.textContent = "";
       state.selectedX = null;
       state.selectedY = null;
-      state.hoverX = null;
-      state.hoverY = null;
 
       if (state.currentShipIndex < SHIPS.length - 1) {
         state.currentShipIndex++;
         state.rotation = 0;
+        resultText.textContent = `${SHIPS[state.currentShipIndex].name} の位置を選んでください。`;
       } else {
         state.currentShipIndex = SHIPS.length;
         resultText.textContent = "すべての船を配置しました。「この配置で決定」を押してください。";
       }
-
       render();
+      return true;
     }
 
     function placeSelectedCell() {
-      if (!isTouchDevice) return;
-
-      if (state.selectedX === null || state.selectedY === null) {
-        resultText.textContent = "まず盤面をタップして配置場所を選んでください。";
+      const preview = getPreviewInfo();
+      if (!preview) {
+        resultText.textContent = "まず盤面を選択してください。";
+        render();
         return;
       }
+      if (!preview.valid) {
+        resultText.textContent = "この位置には配置できません。別のマスを選んでください。";
+        render();
+        return;
+      }
+      handlePlacementClick(preview.baseX, preview.baseY);
+    }
 
-      handlePlacementClick(state.selectedX, state.selectedY);
+    function rotateCurrentShip() {
+      if (!(state.joined && state.phase === "placement" && !state.placementSubmitted)) return;
+      if (state.currentShipIndex >= SHIPS.length) return;
+      state.rotation = (state.rotation + 1) % 4;
+
+      const preview = getPreviewInfo();
+      if (preview) {
+        resultText.textContent = preview.valid
+          ? "回転しました。この位置に配置できます。"
+          : "回転しましたが、この位置には配置できません。";
+      } else {
+        resultText.textContent = `回転しました。現在は ${state.rotation * 90}° 回転。盤面を選択してください。`;
+      }
+      render();
+    }
+
+    function resetPlacementWithConfirm() {
+      if (!(state.joined && state.phase === "placement" && !state.placementSubmitted)) return;
+      if (!confirm("配置をやり直しますか？")) return;
+      resetLocalBoards();
+      resultText.textContent = "配置をやり直します。船①の位置を選んでください。";
+      render();
     }
 
     function submitPlacement() {
-      if (state.phase !== "placement") return;
-      if (state.placementSubmitted) return;
+      if (state.phase !== "placement" || state.placementSubmitted) return;
       if (state.placements.length !== SHIPS.length) {
         resultText.textContent = "まだすべての船を配置していません。";
         return;
       }
 
-      socket.emit("submitPlacement", {
-        roomId: state.roomId,
-        placements: state.placements
-      });
-
+      socket.emit("submitPlacement", { roomId: state.roomId, placements: state.placements });
       state.placementSubmitted = true;
       resultText.textContent = "配置を送信しました。相手の配置完了を待っています。";
       render();
@@ -649,22 +512,15 @@
         resultText.textContent = "あなたのターンではありません。";
         return;
       }
-
       if (state.targetBoard[y][x].result !== null) {
         resultText.textContent = "そのマスはすでに攻撃済みです。";
         return;
       }
-
-      socket.emit("attackCell", {
-        roomId: state.roomId,
-        x,
-        y
-      });
+      socket.emit("attackCell", { roomId: state.roomId, x, y });
     }
 
     function renderOwnBoard() {
       ownBoardEl.innerHTML = "";
-
       const preview = getPreviewInfo();
       const previewMap = new Map();
 
@@ -682,56 +538,19 @@
           const cell = document.createElement("div");
           cell.className = "cell";
 
-          if (state.phase === "placement" && !state.placementSubmitted) {
+          if (state.phase === "placement" && !state.placementSubmitted && state.currentShipIndex < SHIPS.length) {
             cell.classList.add("clickable");
-
-            if (isTouchDevice) {
-              cell.addEventListener("click", () => {
-                selectPlacementCell(x, y);
-              });
-            } else {
-              cell.addEventListener("mouseenter", () => {
-                if (state.hoverX === x && state.hoverY === y) return;
-                state.hoverX = x;
-                state.hoverY = y;
-
-                if (state.needsRender) return;
-                state.needsRender = true;
-
-                requestAnimationFrame(() => {
-                  state.needsRender = false;
-                  render();
-                });
-              });
-
-              cell.addEventListener("click", () => {
-                handlePlacementClick(x, y);
-              });
-            }
+            cell.addEventListener("click", () => selectPlacementCell(x, y));
           }
 
-          if (cellData.ship) {
-            cell.classList.add("ship");
-            cell.textContent = "🚢";
-          }
-
-          if (cellData.wave) {
-            cell.classList.add("wave");
-            cell.textContent = "🌊";
-          }
-
-          if (cellData.hit) {
-            cell.classList.add("hit");
-            cell.textContent = "🔥";
-          }
+          if (cellData.ship) { cell.classList.add("ship"); cell.textContent = "🚢"; }
+          if (cellData.wave) { cell.classList.add("wave"); cell.textContent = "🌊"; }
+          if (cellData.hit) { cell.classList.add("hit"); cell.textContent = "🔥"; }
 
           const previewType = previewMap.get(`${x},${y}`);
-          if (previewType === "valid" && !cellData.ship && !cellData.hit && !cellData.wave) {
-            cell.classList.add("preview-valid");
-          }
-          if (previewType === "invalid" && !cellData.ship && !cellData.hit && !cellData.wave) {
-            cell.classList.add("preview-invalid");
-          }
+          if (previewType === "valid" && !cellData.ship && !cellData.hit && !cellData.wave) cell.classList.add("preview-valid");
+          if (previewType === "invalid" && !cellData.ship && !cellData.hit && !cellData.wave) cell.classList.add("preview-invalid");
+          if (state.selectedX === x && state.selectedY === y && state.phase === "placement" && !state.placementSubmitted) cell.classList.add("selected-cell");
 
           ownBoardEl.appendChild(cell);
         }
@@ -740,38 +559,25 @@
 
     function renderTargetBoard() {
       targetBoardEl.innerHTML = "";
-
       for (let y = 0; y < boardSize; y++) {
         for (let x = 0; x < boardSize; x++) {
           const guess = state.targetBoard[y][x];
           const cell = document.createElement("div");
           cell.className = "cell empty-guess";
-
           if (isMyTurn() && guess.result === null) {
             cell.classList.add("clickable");
             cell.addEventListener("click", () => attackCell(x, y));
           }
-
-          if (guess.result === "hit") {
-            cell.textContent = "◯";
-            cell.classList.add("hit");
-          } else if (guess.result === "near") {
-            cell.textContent = "△";
-            cell.classList.add("wave");
-          } else if (guess.result === "miss") {
-            cell.textContent = "×";
-            cell.classList.add("wave");
-          }
-
+          if (guess.result === "hit") { cell.textContent = "◯"; cell.classList.add("hit"); }
+          else if (guess.result === "near") { cell.textContent = "△"; cell.classList.add("wave"); }
+          else if (guess.result === "miss") { cell.textContent = "×"; cell.classList.add("wave"); }
           targetBoardEl.appendChild(cell);
         }
       }
     }
 
     function renderTexts() {
-      roomText.textContent = state.joined
-      ? `${state.roomId}（${boardSize}×${boardSize}）`
-      : "未参加";
+      roomText.textContent = state.joined ? `${state.roomId}（${boardSize}×${boardSize}）` : "未参加";
       myPlayerText.textContent = state.myPlayerNumber ? `プレイヤー${state.myPlayerNumber}` : "未参加";
 
       if (!state.joined) {
@@ -795,30 +601,18 @@
       if (state.phase === "placement") {
         phaseText.textContent = "船の配置";
         turnText.textContent = "-";
-
-        if (state.placementSubmitted) {
-          guideText.textContent = "配置送信済みです。相手の配置完了を待っています。";
-        } else if (state.currentShipIndex < SHIPS.length) {
-          guideText.textContent = `${SHIPS[state.currentShipIndex].name} を左の盤面に配置してください。緑なら置けます。赤なら置けません。`;
-        } else {
-          guideText.textContent = "すべて配置済みです。「この配置で決定」を押してください。";
-        }
-
-        document.getElementById("ownBoardTitle").textContent = `あなたの自分マス（配置用）`;
-        document.getElementById("targetBoardTitle").textContent = `相手マス / 自分予想マス（配置中は未使用）`;
+        if (state.placementSubmitted) guideText.textContent = "配置送信済みです。相手の配置完了を待っています。";
+        else if (state.currentShipIndex < SHIPS.length) guideText.textContent = `${SHIPS[state.currentShipIndex].name} の位置を選び、必要なら回転し、「配置」を押してください。`;
+        else guideText.textContent = "すべて配置済みです。「この配置で決定」を押してください。";
+        document.getElementById("ownBoardTitle").textContent = "あなたの自分マス（配置用）";
+        document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス（配置中は未使用）";
         return;
       }
 
       if (state.phase === "battle") {
         phaseText.textContent = "対戦中";
         turnText.textContent = state.turn ? `プレイヤー${state.turn}` : "-";
-
-        if (isMyTurn()) {
-          guideText.textContent = "あなたのターンです。右の盤面を1マスクリックして攻撃してください。";
-        } else {
-          guideText.textContent = "相手のターンです。待ってください。";
-        }
-
+        guideText.textContent = isMyTurn() ? "あなたのターンです。右の盤面を1マスクリックして攻撃してください。" : "相手のターンです。待ってください。";
         document.getElementById("ownBoardTitle").textContent = "あなたの自分マス";
         document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス";
         return;
@@ -827,35 +621,39 @@
       if (state.phase === "finished") {
         phaseText.textContent = "ゲーム終了";
         turnText.textContent = "-";
-
-        if (state.winner === state.myPlayerNumber) {
-          guideText.textContent = "あなたの勝利です。";
-        } else {
-          guideText.textContent = "あなたの敗北です。";
-        }
-
+        guideText.textContent = state.winner === state.myPlayerNumber ? "あなたの勝利です。" : "あなたの敗北です。";
         document.getElementById("ownBoardTitle").textContent = "あなたの自分マス";
         document.getElementById("targetBoardTitle").textContent = "相手マス / 自分予想マス";
       }
     }
 
     function renderButtons() {
-      const canPlace =
-        state.joined &&
-        state.phase === "placement" &&
-        !state.placementSubmitted;
+      const canPlace = state.joined && state.phase === "placement" && !state.placementSubmitted;
+      const hasAllShips = state.placements.length === SHIPS.length;
+      const preview = getPreviewInfo();
+      const canConfirmCell = canPlace && preview && preview.valid;
+      const canRotateOrReset = canPlace && state.currentShipIndex < SHIPS.length;
 
-      rotateBtn.disabled = !canPlace;
-      resetPlacementBtn.disabled = !canPlace;
-      submitPlacementBtn.disabled = !(canPlace && state.placements.length === SHIPS.length);
+      rotateBtn.disabled = !canRotateOrReset;
+      placeSelectedBtn.disabled = !canConfirmCell;
+      resetPlacementBtn.disabled = !canRotateOrReset && state.placements.length === 0;
+      submitPlacementBtn.disabled = !(canPlace && hasAllShips);
 
-      if (isTouchDevice) {
-        const preview = getPreviewInfo();
-        placeSelectedBtn.disabled = !(canPlace && preview && preview.valid);
-        placeSelectedBtn.style.display = "inline-block";
+      floatingPlacementBar.classList.toggle("show", canPlace);
+      floatingRotateBtn.disabled = !canRotateOrReset;
+      floatingPlaceBtn.disabled = !canConfirmCell;
+      floatingResetBtn.disabled = !canRotateOrReset && state.placements.length === 0;
+
+      if (!canPlace) {
+        floatingStatus.textContent = "";
+      } else if (hasAllShips) {
+        floatingStatus.textContent = "配置完了。上の「この配置で決定」を押してください。";
+      } else if (!preview) {
+        floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 盤面を選択`;
+      } else if (preview.valid) {
+        floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 配置できます`;
       } else {
-        placeSelectedBtn.disabled = true;
-        placeSelectedBtn.style.display = "none";
+        floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 配置不可`;
       }
     }
 
@@ -864,7 +662,6 @@
       ownBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
       targetBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
       targetBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
-      
       renderTexts();
       renderButtons();
       renderOwnBoard();
@@ -873,110 +670,39 @@
 
     joinRoomBtn.addEventListener("click", () => {
       const roomId = roomIdInput.value.trim().toUpperCase();
-      if (!roomId) {
-        resultText.textContent = "部屋IDを入力してください。";
-        return;
-      }
-
+      if (!roomId) { resultText.textContent = "部屋IDを入力してください。"; return; }
       resultText.textContent = "";
-      const selectedBoardSize = Number(boardSizeSelect.value);
-
-      socket.emit("joinRoom", {
-        roomId,
-        boardSize: selectedBoardSize
-      });
+      socket.emit("joinRoom", { roomId, boardSize: Number(boardSizeSelect.value) });
     });
 
-    roomIdInput.addEventListener("keydown", event => {
-      if (event.key === "Enter") {
-        joinRoomBtn.click();
-      }
-    });
+    roomIdInput.addEventListener("keydown", event => { if (event.key === "Enter") joinRoomBtn.click(); });
 
     copyRoomBtn.addEventListener("click", async () => {
       const roomId = roomIdInput.value.trim().toUpperCase() || state.roomId;
-      if (!roomId) {
-        resultText.textContent = "コピーする部屋IDがありません。";
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(roomId);
-        resultText.textContent = `部屋ID「${roomId}」をコピーしました。`;
-      } catch (error) {
-        resultText.textContent = "部屋IDのコピーに失敗しました。";
-      }
+      if (!roomId) { resultText.textContent = "コピーする部屋IDがありません。"; return; }
+      try { await navigator.clipboard.writeText(roomId); resultText.textContent = `部屋ID「${roomId}」をコピーしました。`; }
+      catch (error) { resultText.textContent = "部屋IDのコピーに失敗しました。"; }
     });
 
-    rotateBtn.addEventListener("click", () => {
-      if (rotateBtn.disabled) return;
+    rotateBtn.addEventListener("click", rotateCurrentShip);
+    floatingRotateBtn.addEventListener("click", rotateCurrentShip);
+    placeSelectedBtn.addEventListener("click", placeSelectedCell);
+    floatingPlaceBtn.addEventListener("click", placeSelectedCell);
+    resetPlacementBtn.addEventListener("click", resetPlacementWithConfirm);
+    floatingResetBtn.addEventListener("click", resetPlacementWithConfirm);
+    submitPlacementBtn.addEventListener("click", submitPlacement);
 
-      state.rotation = (state.rotation + 1) % 4;
+    overlayButton.addEventListener("click", () => { overlay.classList.remove("show"); });
 
-      if (isTouchDevice && state.selectedX !== null && state.selectedY !== null) {
-        const ship = SHIPS[state.currentShipIndex];
-        const rotated = getRotatedShipCells(ship.cells, state.rotation);
-        const valid = canPlaceShip(
-          state.ownBoard,
-          rotated,
-          state.selectedX,
-          state.selectedY
-        );
-
-        resultText.textContent = valid
-          ? "回転しました。この位置に配置できます。"
-          : "回転しましたが、この位置には配置できません。別の位置を選んでください。";
-      } else {
-        resultText.textContent = `回転しました。現在は ${state.rotation * 90}° 回転。`;
-      }
-
-      render();
-    });
-
-    resetPlacementBtn.addEventListener("click", () => {
-      if (resetPlacementBtn.disabled) return;
-      if (!confirm("配置をやり直しますか？")) return;
-      resetLocalBoards();
-      resultText.textContent = "";
-      render();
-    });
-
-    placeSelectedBtn.addEventListener("click", () => {
-      placeSelectedCell();
-    });
-
-    submitPlacementBtn.addEventListener("click", () => {
-      submitPlacement();
-    });
-
-    ownBoardEl.addEventListener("mouseleave", () => {
-      if (state.phase !== "placement") return;
-      if (isTouchDevice) return;
-      state.hoverX = null;
-      state.hoverY = null;
-      render();
-    });
-
-    overlayButton.addEventListener("click", () => {
-      overlay.classList.remove("show");
-    });
-
-    socket.on("connect", () => {
-      resultText.textContent = "サーバーに接続しました。";
-    });
-
-    socket.on("disconnect", () => {
-      resultText.textContent = "サーバーとの接続が切れました。";
-    });
+    socket.on("connect", () => { resultText.textContent = "サーバーに接続しました。"; });
+    socket.on("disconnect", () => { resultText.textContent = "サーバーとの接続が切れました。"; });
 
     socket.on("joinedRoom", ({ roomId, playerNumber, boardSize: serverBoardSize }) => {
       state.roomId = roomId;
       state.myPlayerNumber = playerNumber;
       state.joined = true;
-
       boardSize = serverBoardSize;
       boardSizeSelect.value = String(boardSize);
-      
       resetLocalBoards();
       resultText.textContent = `部屋 ${roomId} に入りました。あなたはプレイヤー${playerNumber}です。盤面は ${boardSize}×${boardSize} です。`;
       render();
@@ -992,11 +718,7 @@
       state.turn = room.turn;
       state.winner = room.winner;
       state.players = room.players || [];
-
-      if (state.phase === "waiting") {
-        resetLocalBoards();
-      }
-
+      if (state.phase === "waiting") resetLocalBoards();
       render();
     });
 
@@ -1009,51 +731,31 @@
 
     socket.on("attackResult", ({ x, y, result }) => {
       state.targetBoard[y][x].result = result;
-
-      if (result === "hit") {
-        resultText.textContent = `(${x + 1}, ${y + 1}) に命中しました。`;
-      } else if (result === "near") {
-        resultText.textContent = `(${x + 1}, ${y + 1}) は船の隣でした。`;
-      } else {
-        resultText.textContent = `(${x + 1}, ${y + 1}) ははずれでした。`;
-      }
-
+      if (result === "hit") resultText.textContent = `(${x + 1}, ${y + 1}) に命中しました。`;
+      else if (result === "near") resultText.textContent = `(${x + 1}, ${y + 1}) は船の隣でした。`;
+      else resultText.textContent = `(${x + 1}, ${y + 1}) ははずれでした。`;
       render();
     });
 
     socket.on("defenseResult", ({ x, y, result }) => {
-      if (result === "hit") {
-        state.ownBoard[y][x].hit = true;
-      } else {
-        state.ownBoard[y][x].wave = true;
-      }
+      if (result === "hit") state.ownBoard[y][x].hit = true;
+      else state.ownBoard[y][x].wave = true;
       render();
     });
 
     socket.on("gameOver", ({ winner }) => {
       state.phase = "finished";
       state.winner = winner;
-
-      if (winner === state.myPlayerNumber) {
-        resultText.textContent = "勝利！";
-        showOverlay("ゲーム終了", "あなたの勝利です。");
-      } else {
-        resultText.textContent = "敗北...";
-        showOverlay("ゲーム終了", "あなたの敗北です。");
-      }
-
+      if (winner === state.myPlayerNumber) { resultText.textContent = "勝利！"; showOverlay("ゲーム終了", "あなたの勝利です。"); }
+      else { resultText.textContent = "敗北..."; showOverlay("ゲーム終了", "あなたの敗北です。"); }
       render();
     });
 
-    socket.on("systemMessage", message => {
-      showOverlay("お知らせ", message);
-    });
+    socket.on("systemMessage", message => { showOverlay("お知らせ", message); });
 
     socket.on("errorMessage", message => {
       resultText.textContent = message;
-      if (state.phase === "placement" && state.placementSubmitted) {
-        state.placementSubmitted = false;
-      }
+      if (state.phase === "placement" && state.placementSubmitted) state.placementSubmitted = false;
       render();
     });
 
