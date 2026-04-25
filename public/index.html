@@ -77,8 +77,8 @@
     }
 
     .cell {
-      width: 54px;
-      height: 54px;
+      width: var(--cell-size, 54px);
+      height: var(--cell-size, 54px);
       background: #cfe8ff;
       border: 1px solid #8eb8db;
       display: flex;
@@ -100,6 +100,54 @@
     .cell.preview-valid { background: #bfe8bf !important; outline: 2px solid #2e8b57; }
     .cell.preview-invalid { background: #f6c0c0 !important; outline: 2px solid #c0392b; }
     .cell.selected-cell { outline: 4px solid #f6a400 !important; box-shadow: 0 0 0 3px rgba(246,164,0,0.22); }
+
+
+    .ship-details summary {
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1f4e79;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .ship-details summary::-webkit-details-marker { display: none; }
+    .ship-details summary::after {
+      content: "＋";
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .ship-details[open] summary::after { content: "－"; }
+    .ship-details[open] .ship-list,
+    .ship-details[open] .legend { margin-top: 12px; }
+
+    .desktop-placement-controls { display: block; }
+
+    .floating-attack-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+      background: rgba(255,255,255,0.97);
+      box-shadow: 0 -4px 18px rgba(0,0,0,0.18);
+      z-index: 1100;
+      border-top: 1px solid #d9e2ea;
+      font-weight: bold;
+      color: #1f4e79;
+      text-align: center;
+    }
+
+    .floating-attack-bar.show { display: flex; }
+    .floating-attack-bar.my-turn { color: #b02a37; }
+
 
     .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 14px; margin-top: 10px; }
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -162,10 +210,12 @@
       .container { padding: 14px; }
       header h1 { font-size: 22px; }
       .grid { grid-template-columns: repeat(7, 44px); grid-template-rows: repeat(7, 44px); gap: 4px; }
-      .cell { width: 44px; height: 44px; font-size: 20px; }
+      .cell { font-size: 20px; }
       .floating-status { display: block; }
       .floating-placement-bar { justify-content: space-around; }
       .floating-placement-bar button { min-width: 76px; padding: 12px 10px; }
+      .desktop-placement-controls { display: none; }
+      body { padding-bottom: 112px; }
     }
   </style>
 </head>
@@ -200,7 +250,7 @@
         <div id="resultText" class="message"></div>
       </div>
 
-      <div>
+      <div id="placementControls" class="desktop-placement-controls">
         <div class="controls">
           <button id="rotateBtn" disabled>船を回転</button>
           <button id="placeSelectedBtn" disabled>この位置に配置</button>
@@ -208,7 +258,7 @@
           <button id="resetPlacementBtn" class="secondary" disabled>配置をやり直す</button>
         </div>
         <div class="small-note">
-          配置中は、まず盤面を選択し、必要なら回転し、「この位置に配置」で確定します。画面下部にも同じ操作バーが表示されます。
+          配置中は、まず盤面を選択し、必要なら回転し、「この位置に配置」で確定します。スマホでは画面下部の操作バーを使います。
         </div>
       </div>
     </div>
@@ -234,26 +284,29 @@
           <li>船③：2×3 から1マス除く形（計5マス）</li>
           <li>船④：4×1</li>
         </ul>
+        <div class="legend">
+          <span>🟩 自分の船</span>
+          <span>🟩+緑枠 配置可能</span>
+          <span>🟥+赤枠 配置不可</span>
+          <span>🟧 選択中</span>
+          <span>◯ 命中</span>
+          <span>△ 船の隣（上下左右のみ）</span>
+          <span>× はずれ</span>
+          <span>🔥 相手に当てられた船</span>
+          <span>🌊 相手が撃った海</span>
+        </div>
       </details>
-      <div class="legend">
-        <span>🟩 自分の船</span>
-        <span>🟩+緑枠 配置可能</span>
-        <span>🟥+赤枠 配置不可</span>
-        <span>🟧 選択中</span>
-        <span>● 命中</span>
-        <span>△ 船の隣（上下左右のみ）</span>
-        <span>× はずれ</span>
-        <span>🔥 相手に当てられた船</span>
-        <span>🌊 相手が撃った海</span>
-      </div>
     </div>
-  </div>
 
   <div id="floatingPlacementBar" class="floating-placement-bar">
     <div id="floatingStatus" class="floating-status">盤面を選択してください</div>
     <button id="floatingRotateBtn">回転</button>
     <button id="floatingPlaceBtn">配置</button>
     <button id="floatingResetBtn" class="secondary">やり直し</button>
+  </div>
+
+  <div id="floatingAttackBar" class="floating-attack-bar">
+    <span id="floatingAttackStatus">対戦中です</span>
   </div>
 
   <div id="overlay" class="overlay show">
@@ -302,6 +355,8 @@
     const floatingRotateBtn = document.getElementById("floatingRotateBtn");
     const floatingPlaceBtn = document.getElementById("floatingPlaceBtn");
     const floatingResetBtn = document.getElementById("floatingResetBtn");
+    const floatingAttackBar = document.getElementById("floatingAttackBar");
+    const floatingAttackStatus = document.getElementById("floatingAttackStatus");
 
     const overlay = document.getElementById("overlay");
     const overlayTitle = document.getElementById("overlayTitle");
@@ -570,7 +625,7 @@
             cell.classList.add("clickable");
             cell.addEventListener("click", () => attackCell(x, y));
           }
-          if (guess.result === "hit") { cell.textContent = "●"; cell.classList.add("hit"); }
+          if (guess.result === "hit") { cell.textContent = "◯"; cell.classList.add("hit"); }
           else if (guess.result === "near") { cell.textContent = "△"; cell.classList.add("wave"); }
           else if (guess.result === "miss") { cell.textContent = "×"; cell.classList.add("wave"); }
           targetBoardEl.appendChild(cell);
@@ -629,6 +684,13 @@
       }
     }
 
+    function getCellSize() {
+      if (window.innerWidth > 980) return 54;
+      if (boardSize === 7) return 44;
+      if (boardSize === 8) return 39;
+      return 35;
+    }
+
     function renderButtons() {
       const canPlace = state.joined && state.phase === "placement" && !state.placementSubmitted;
       const hasAllShips = state.placements.length === SHIPS.length;
@@ -646,10 +708,22 @@
       floatingPlaceBtn.disabled = !canConfirmCell;
       floatingResetBtn.disabled = !canRotateOrReset && state.placements.length === 0;
 
+      const isBattle = state.joined && state.phase === "battle";
+      floatingAttackBar.classList.toggle("show", isBattle);
+      floatingAttackBar.classList.toggle("my-turn", isBattle && isMyTurn());
+
+      if (isBattle) {
+        floatingAttackStatus.textContent = isMyTurn()
+          ? "あなたのターン：相手マスをタップして攻撃"
+          : "相手のターンです";
+      } else {
+        floatingAttackStatus.textContent = "";
+      }
+
       if (!canPlace) {
         floatingStatus.textContent = "";
       } else if (hasAllShips) {
-        floatingStatus.textContent = "配置完了。上の「この配置で決定」を押してください。";
+        floatingStatus.textContent = "配置完了。「この配置で決定」を押してください。";
       } else if (!preview) {
         floatingStatus.textContent = `${SHIPS[state.currentShipIndex].name}: 盤面を選択`;
       } else if (preview.valid) {
@@ -668,17 +742,22 @@
 
     window.addEventListener("resize", () => {
       const details = document.querySelector(".ship-details");
-      if (!details) return;
-      if (window.innerWidth >= 981) {
+      if (details && window.innerWidth >= 981) {
         details.open = true;
       }
+      render();
     });
 
     function render() {
-      ownBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
-      ownBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
-      targetBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, 54px)`;
-      targetBoardEl.style.gridTemplateRows = `repeat(${boardSize}, 54px)`;
+      const cellSize = getCellSize();
+
+      ownBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, ${cellSize}px)`;
+      ownBoardEl.style.gridTemplateRows = `repeat(${boardSize}, ${cellSize}px)`;
+      targetBoardEl.style.gridTemplateColumns = `repeat(${boardSize}, ${cellSize}px)`;
+      targetBoardEl.style.gridTemplateRows = `repeat(${boardSize}, ${cellSize}px)`;
+
+      document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
+
       renderTexts();
       renderButtons();
       renderOwnBoard();
